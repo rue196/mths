@@ -12,7 +12,7 @@ def exp_series(x, k)
 end
 
 # Parameters
-K = 1000               # number of terms → O(K) operations
+K = 10               # number of terms → O(K) operations
 e_approx = exp_series(1.0, K)
 
 
@@ -34,7 +34,7 @@ def solve_a(k)
 end
 
 # Verify the equation
-k = 1000
+k = 10
 a = solve_a(k)
 e_val = exp_series(1.0, k)
 lhs = 1.0 / a + e_val
@@ -86,7 +86,7 @@ C = [1.0] * (2 * K + 1)          # all ones, symmetric
 alpha = 0.3628
 
 # Generate t values from 0 to 20, 500 points
-t_values = (0..500).map { |j| j * 20.0 / 500 }
+t_values = (0..500).map { |j| j * 20.0 / 1000 }
 results = t_values.map { |t| zeta2(t, C, alpha) }
 
 # First few results as a quick check
@@ -203,4 +203,7 @@ else:
     a = int(input("\nEnter a Number : "))
     b = int(input("Enter another Number : "))
     print("Sum of the two numbers : ", a+b)
+
+"puts "Done. Press Enter to close."
+STDIN.gets
    

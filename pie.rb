@@ -18,7 +18,7 @@ C = [1.0] * (2 * K + 1)          # all ones, symmetric
 alpha = 0.3628
 
 # Generate t values from 0 to 20, 500 points
-t_values = (0..500).map { |j| j * 20.0 / 500 }
+t_values = (0..500).map { |j| j * 20.0 / 2000 }
 results = t_values.map { |t| zeta2(t, C, alpha) }
 
 # First few results as a quick check
@@ -177,22 +177,6 @@ puts "a = 1/(π - e) = #{a_ap}"
 puts "1/a + e = #{1.0/a_ap + e_ap}"
 puts "which exactly equals π_ap (by algebra) -> #{(1.0/a_ap + e_ap) == pi_ap}"
 puts
-
-# ------------------------------------------------------------
-# Using a as a parameter in a simple linear system (example)
-# ------------------------------------------------------------
-puts "=== Linear algebra example using a ==="
-# Build a 2x2 matrix whose inverse is a*I (scaled identity)
-# i.e., M = (1/a)*I
-m = Matrix.build(2) { |i,j| i==j ? 1.0/TRUE_A : 0.0 }
-puts "Matrix M = (1/a)*I = \n#{m}"
-# Solve M x = b (choose b arbitrary)
-b = Vector[1.0, 2.0]
-x = m.inverse * b
-puts "Solve M x = b, with b = #{b}"
-puts "Solution x = #{x}"
-puts "Check: M * x = #{m * x} (should equal b)"
-puts "The constant a appears naturally as the eigenvalue of M's inverse."
 
 puts "Press Enter to exit"
 gets
