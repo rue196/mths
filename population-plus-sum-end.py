@@ -1,5 +1,4 @@
 import numpy as np
-
 import matplotlib.pyplot as plt
 
 # ==========================================
@@ -18,7 +17,7 @@ pop_shock[0] = [1200, 5000, 1800]
 aging_ym = 1 / 20.0   # Young -> Middle (after 20 years)
 aging_mo = 1 / 40.0   # Middle -> Old (after 40 working years)
 death_m = 0.005       # Middle mortality (small)
-death_o_base = 1 / 20.0  # Old mortality (5% per year, ~20 yrs post-retirement)
+death_o_base = 1 / 10.0  # Old mortality (5% per year, ~20 yrs post-retirement)
 
 # Economic parameters
 birth_base = 0.08     # Baseline births per middle-aged adult per year
