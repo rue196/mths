@@ -1,12 +1,63 @@
 import math
 import numpy as np
-
-# ---------- Constants ----------
+from Oklogk import mu_convolution_H
+from random_access_colla_mobius import MobiusCollatzMemory
 PI = math.pi
 E = math.e
 ALPHA = 1.0 / (PI - E)          # ≈ 2.362
 NORM = 1.0 - math.exp(-ALPHA * (PI + E))
 
+class ChipProcessor:
+    """
+    A processor that performs the chip pipeline with pre‑allocated buffers.
+    This reduces garbage collection and allocation overhead.
+    """
+
+    def __init__(self, max_K=1000):
+        """
+        Allocate buffers for up to max_K elements.
+        """
+        self.max_K = max_K
+        # Buffers for convolution (two passes)
+        self.f = np.zeros(max_K, dtype=float)
+        self.b = np.zeros(max_K, dtype=float)
+        # Buffer for convolution result
+        self.conv = np.zeros(max_K, dtype=float)
+        # Buffer for sorted indices (TSP order)
+        self.order = np.zeros(max_K, dtype=int)
+        # Buffer for magnitudes (for sorting)
+        self.mag = np.zeros(max_K, dtype=float)
+        # Buffer for indices (for argsort)
+        self.idx = np.arange(max_K, dtype=int)   # reusable index array
+        # Cache for Möbius sieve (computed once)
+        self.mu = None
+        self._update_mu(max_K)
+
+    def _update_mu(self, K):
+        """Compute Möbius sieve up to K (if not already cached)."""
+        if self.mu is None or len(self.mu) < K + 1:
+            self.mu = self._mobius_sieve(K)
+
+    @staticmethod
+    def _mobius_sieve(K):
+        mu = [0] * (K + 1)
+        mu[1] = 1
+        primes = []
+        is_comp = [False] * (K + 1)
+        for i in range(2, K + 1):
+            if not is_comp[i]:
+                primes.append(i)
+                mu[i] = -1
+            for p in primes:
+                if i * p > K:
+                    break
+                is_comp[i * p] = True
+                if i % p == 0:
+                    mu[i * p] = 0
+                    break
+                else:
+                    mu[i * p] = -mu[i]
+        return mu
 class ChipProcessor:
     """
     A processor that performs the chip pipeline with pre‑allocated buffers.
@@ -233,48 +284,6 @@ class ChipLogicGate:
 
         # Return the compressed representation and invariants
         return kept, S, H, m, conv
-class ChipLogicGate:
-    """
-    A bounded Möbius logic gate that applies a function to a signal,
-    then runs the chip pipeline (convolution + supertrace + Möbius compression).
-    The output is a compressed representation of the transformed signal.
-    """
-
-    def __init__(self, max_K=1000):
-        self.processor = ChipProcessor(max_K=max_K)
-
-    def apply_function(self, signal, func, *args, **kwargs):
-        """
-        Apply a function `func` to each element of `signal`.
-        `func` can be a callable (e.g., math.log, math.exp, np.sin)
-        or a string ('log', 'exp', 'sin', 'cos', 'trace').
-        """
-        if isinstance(func, str):
-            func_name = func.lower()
-            if func_name == 'log':
-                # avoid log(0)
-                safe_signal = np.maximum(signal, 1e-12)
-                transformed = np.log(safe_signal)
-            elif func_name == 'exp':
-                transformed = np.exp(signal)
-            elif func_name == 'sin':
-                transformed = np.sin(signal)
-            elif func_name == 'cos':
-                transformed = np.cos(signal)
-            elif func_name == 'trace':
-                # Matrix trace function: assumes signal is complex and represents matrix entries
-                transformed = self._matrix_trace(signal)
-            else:
-                raise ValueError(f"Unknown function name: {func_name}")
-        else:
-            # assume it's a callable
-            transformed = func(signal, *args, **kwargs)
-
-        # Run the chip pipeline on the transformed signal
-        kept, S, H, m, conv = self.processor.process(transformed)
-
-        # Return the compressed representation and invariants
-        return kept, S, H, m, conv
 
     def _matrix_trace(self, signal):
         """
@@ -303,6 +312,24 @@ class ChipLogicGate:
     # Additional functions can be added similarly
 
 
+
+
+# ---------- Test ----------
+def main():
+    # Create a reusable processor
+    proc = ChipProcessor(max_K=500)
+    K = 200
+    signal = np.array([math.log(i+1) for i in range(K)])
+    kept, S, H, m, conv = chip_pipeline(signal, processor=proc)
+    print(f"Signal length: {K}")
+    print(f"Supertrace S = {S:.4f}, Entropy H = {H:.4f}, Mass m = {m:.4f}")
+    print(f"Kept {len(kept)} coefficients (ratio {len(kept)/K:.3f})")
+    # Reconstruct
+    recon = np.zeros(K, dtype=complex)
+    for idx, val in kept:
+        recon[idx] = val
+    error = np.linalg.norm(conv - recon) / np.linalg.norm(conv)
+    print(f"Reconstruction relative L2 error = {error:.4e}")
 # ---------- Example usage ----------
 def main():
     # Create a logic gate processor
@@ -327,10 +354,176 @@ def main():
     kept_trace, S_trace, H_trace, m_trace, conv_trace = gate.apply_function(mat_signal, 'trace')
     print(f"\nMatrix trace: S={S_trace:.4f}, H={H_trace:.4f}, m={m_trace:.4f}, kept {len(kept_trace)} coeffs")
 
-    # Show the compressed indices and values for the log case
-    print("\nFirst 5 kept for log transform (index, value):")
-    for idx, val in kept_log[:5]:
-        print(f"  {idx}: {val:.4f}")
+
+class UILogicGate:
+    """
+    A user‑friendly logic gate that applies operations and compression
+    to a signal, with buffering for efficiency.
+    """
+
+    def __init__(self, max_K=1000):
+        self.max_K = max_K
+        self.processor = ChipProcessor(max_K=max_K)
+        self.gate = ChipLogicGate(max_K=max_K)
+        # buffers
+        self.signal_buffer = np.zeros(max_K, dtype=float)
+        self.current_len = 0
+        # output storage
+        self.output_kept = []
+        self.output_S = 0.0
+        self.output_H = 0.0
+        self.output_m = 0.0
+        self.output_conv = None
+
+    def set_signal(self, signal):
+        """Set the input signal (1D array)."""
+        K = len(signal)
+        if K > self.max_K:
+            raise ValueError(f"Signal length {K} exceeds max_K {self.max_K}")
+        self.signal_buffer[:K] = signal
+        self.current_len = K
+
+    def load_harmonic_convolution(self, K):
+        """Load F(n) = (μ * H)(n) as the signal (n=1..K)."""
+        F, mu, H = mu_convolution_H(K)
+        self.set_signal(F[1:])   # F[0] is 0, take n=1..K
+
+    def apply_gate(self, gate_name):
+        """
+        Apply a logic gate to the current signal.
+        Available names: 'log', 'exp', 'sin', 'cos', 'trace'.
+        Returns the compressed output (kept coefficients, S, H, m, conv).
+        """
+        signal = self.signal_buffer[:self.current_len]
+        kept, S, H_ent, m, conv = self.gate.apply_function(signal, gate_name)
+        self.output_kept = kept
+        self.output_S = S
+        self.output_H = H_ent
+        self.output_m = m
+        self.output_conv = conv
+        # Optionally update the signal buffer with the reconstructed signal
+        # (using the kept coefficients zero‑padded) for chaining.
+        recon = np.zeros(self.current_len, dtype=complex)
+        for idx, val in kept:
+            recon[idx] = val
+        self.signal_buffer[:self.current_len] = np.real(recon)
+        return kept, S, H_ent, m, conv
+
+    def apply_collatz(self):
+        """
+        Apply Collatz indexing to the current signal.
+        Values are kept, indices are transformed n -> (3n+1) repeatedly until odd.
+        Returns the list of (new_index, value) pairs.
+        """
+        K = self.current_len
+        # We need to store the current values with their indices.
+        # We'll use a temporary MobiusCollatzMemory with odd square‑free indices.
+        # Since the current signal is just a list, we assign indices 1,3,5,7,...
+        mem = MobiusCollatzMemory(max_index=K*3+1, use_square_free=True)
+        idx = 1
+        count = 0
+        while count < K and idx <= K*3+1:
+            if mem._valid_index(idx):
+                if count < len(self.signal_buffer):
+                    mem.write(idx, self.signal_buffer[count])
+                    count += 1
+            idx += 2   # only odd
+        # Apply Collatz step to all indices
+        mem.collatz_step()
+        # Extract new signal (sorted by index)
+        items = sorted(mem.data.items())
+        new_signal = np.array([val for _, val in items], dtype=float)
+        K_new = len(new_signal)
+        if K_new > self.max_K:
+            raise ValueError(f"Collatz expanded to {K_new} > max_K")
+        self.signal_buffer[:K_new] = new_signal
+        self.current_len = K_new
+        return items
+
+    def compress(self):
+        """Run the chip compression on the current signal."""
+        signal = self.signal_buffer[:self.current_len]
+        kept, S, H_ent, m, conv = self.processor.process(signal)
+        self.output_kept = kept
+        self.output_S = S
+        self.output_H = H_ent
+        self.output_m = m
+        self.output_conv = conv
+        return kept, S, H_ent, m, conv
+
+    def get_signal(self):
+        """Return the current signal buffer (truncated to current length)."""
+        return self.signal_buffer[:self.current_len]
+
+    def get_output(self):
+        """Return the compressed coefficients and invariants."""
+        return self.output_kept, self.output_S, self.output_H, self.output_m, self.output_conv
+
+    def print_summary(self):
+        """Print a summary of the current state."""
+        print(f"Signal length: {self.current_len}")
+        print(f"Compressed coefficients: {len(self.output_kept)}")
+        print(f"Supertrace S = {self.output_S:.6f}")
+        print(f"Entropy H = {self.output_H:.6f}")
+        print(f"Mass m = {self.output_m:.6f}")
+        if self.output_kept:
+            print("First 5 kept (index, value):")
+            for idx, val in self.output_kept[:5]:
+                print(f"  {idx}: {val:.6f}")
+
+
+# ---------- Simple command‑line interface ----------
+def interactive_demo():
+    gate = UILogicGate(max_K=256)
+
+    print("=== Möbius Logic Gate UI ===\n")
+    print("Available commands:")
+    print("  load <K>          – load (μ*H)(n) for n=1..K")
+    print("  gate <name>       – apply logic gate (log, exp, sin, cos, trace)")
+    print("  collatz           – apply Collatz indexing")
+    print("  compress          – run chip compression")
+    print("  signal            – show current signal (first 10 values)")
+    print("  output            – show compressed output summary")
+    print("  quit              – exit")
+
+    while True:
+        try:
+            cmd = input("\n> ").strip().split()
+            if not cmd:
+                continue
+            if cmd[0] == 'quit':
+                break
+            elif cmd[0] == 'load':
+                if len(cmd) < 2:
+                    print("Usage: load <K>")
+                    continue
+                K = int(cmd[1])
+                gate.load_harmonic_convolution(K)
+                print(f"Loaded (μ*H)(n) for n=1..{K}")
+            elif cmd[0] == 'gate':
+                if len(cmd) < 2:
+                    print("Usage: gate <name>")
+                    continue
+                name = cmd[1]
+                gate.apply_gate(name)
+                print(f"Applied gate '{name}'")
+                gate.print_summary()
+            elif cmd[0] == 'collatz':
+                items = gate.apply_collatz()
+                print(f"Collatz step: {len(items)} coefficients remaining")
+            elif cmd[0] == 'compress':
+                gate.compress()
+                print("Compression done.")
+                gate.print_summary()
+            elif cmd[0] == 'signal':
+                sig = gate.get_signal()
+                print("Signal (first 10):", sig[:10])
+            elif cmd[0] == 'output':
+                gate.print_summary()
+            else:
+                print("Unknown command.")
+        except Exception as e:
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
-    main()
+    interactive_demo()
