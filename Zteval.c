@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <complex.h>
 
 /**
  * Evaluate the compressed spectral sum in O(K) time.
@@ -48,14 +49,3 @@ int main() {
     return 0;
 }
 
-
-#include <complex.h>
-double complex zeta2_complex(double t, const double complex *C, int K, double alpha) {
-    double complex sum = C[K];   // i=0
-    for (int i = 1; i <= K; ++i) {
-        double theta = t * i / alpha;
-        double complex e = cos(theta) + I * sin(theta);  // exp(i*theta)
-        sum += C[K + i] * e + C[K - i] * conj(e);
-    }
-    return sum;
-}
