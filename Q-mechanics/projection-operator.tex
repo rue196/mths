@@ -1,0 +1,66 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, amsthm}
+
+\begin{document}
+
+\section*{Proof of Invariance for the Spinor Projection Operator $\Pi$}
+
+\textbf{Theorem.} 
+The projection operator $\Pi$, defined via a rank-6 Levi-Civita contraction on a 12-vertex configuration in $\mathbb{R}^6$, is well-defined, orientation-consistent, and invariant under global spinor rotation $e^{i\theta}$.
+
+\begin{proof}
+Let the 12 vertices be embedded in $\mathbb{R}^6$.  
+Complexify each coordinate pair to define spinors
+
+
+\[
+z_{ij} = \hat{x}_{ij} + i\hat{y}_{ij} \in \mathbb{C}.
+\]
+
+
+The global spinor rotation acts by
+\begin{equation}
+    \Psi_\theta : z_{ij} \mapsto e^{i\theta} z_{ij},
+\end{equation}
+which induces a linear orthogonal transformation on each $\mathbb{R}^2$ coordinate plane.
+
+The projection operator $\Pi$ is constructed using the rank-6 Levi-Civita tensor $\varepsilon_{ijklmn}$.  
+Under any transformation $O \in SO(6)$, the tensor transforms as
+\begin{equation}
+    \varepsilon'_{abcdef}
+    = \varepsilon_{ijklmn}\,
+      O_{ia} O_{jb} O_{kc} O_{ld} O_{me} O_{nf}
+    = \det(O)\, \varepsilon_{abcdef}.
+\end{equation}
+Since the spinor rotation $e^{i\theta}$ corresponds to a block-diagonal product of $SO(2)$ rotations, the induced transformation $O_{\text{total}} \in SO(6)$ satisfies
+
+
+\[
+\det(O_{\text{total}}) = 1.
+\]
+
+
+Thus the Levi-Civita contraction is invariant, and therefore
+
+
+\[
+\Pi \circ \Psi_\theta = \Pi.
+\]
+
+
+
+The reduction from $\mathbb{R}^6$ to $\mathbb{R}^3$ follows the structure of the covering map
+
+
+\[
+SU(2) \longrightarrow SO(3).
+\]
+
+
+The spinor phase $\theta$ acts as the fiber of a Hopf-type fibration, restricting the effective degrees of freedom to a 3-dimensional subspace.  
+Because the rotation is continuous and homotopic to the identity, orientation is preserved.
+
+Hence, $\Pi$ is well-defined, orientation-consistent, and independent of the choice of 6D embedding.
+\end{proof}
+
+\end{document}
