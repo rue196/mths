@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-mobius_m_matrix.py
+mobius_m_matrix_adaptive.py
 
 Maps EllipticMobiusGate coefficients to an M‑matrix and verifies
-the supertrace integrals using only NumPy (no SciPy).
+the supertrace integrals using an adaptive Simpson integrator with entropy scaling.
 """
 
 import math
@@ -14,7 +14,81 @@ import matplotlib.pyplot as plt
 PI = math.pi
 E = math.e
 ALPHA = 1.0 / (PI - E)          # ≈ 2.362
-NORM = 1.0 - math.exp(-ALPHA * (PI + E))   # ≈ 1.0 (used in convolution)
+NORM = 1.0 - math.exp(-ALPHA * (PI + E))
+
+# ---------- Supertrace entropy from sampled values ----------
+def supertrace_entropy(values):
+    """
+    Compute an entropy-like scalar from a list of values.
+    S = Σ_even v_i - Σ_odd v_i, then H = -α*(|S|/N)*log(|S|/N)
+    """
+    N = len(values)
+    if N == 0:
+        return 0.0
+    S = 0.0
+    for i, v in enumerate(values):
+        if (i + 1) % 2 == 0:   # even 1-based -> positive
+            S += v
+        else:
+            S -= v
+    ratio = abs(S) / N
+    if 0.0 < ratio < 1.0:
+        return -ALPHA * ratio * math.log(ratio)
+    return 0.0
+
+# ---------- Adaptive Simpson integrator with alpha scaling ----------
+def adaptive_simpson(f, a, b, tol=1e-6, max_depth=20, alpha_scale=1.0):
+    """
+    Recursive adaptive Simpson integration.
+    The step size and tolerance are scaled by alpha_scale.
+    """
+    def simpson(f, a, b):
+        return (b - a) / 6.0 * (f(a) + 4.0 * f((a + b) / 2.0) + f(b))
+
+    def recursive(a, b, fa, fm, fb, S, depth):
+        m = (a + b) / 2.0
+        lm = (a + m) / 2.0
+        rm = (m + b) / 2.0
+        flm = f(lm)
+        frm = f(rm)
+
+        S_left = simpson(f, a, m)
+        S_right = simpson(f, m, b)
+        S_total = S_left + S_right
+
+        scaled_tol = tol * (1.0 / (1.0 + alpha_scale * 0.1))
+        error = abs(S_total - S)
+
+        if depth <= 0 or error < 15.0 * scaled_tol:
+            return S_total + (S_total - S) / 15.0
+        return (recursive(a, m, fa, flm, fm, S_left, depth-1) +
+                recursive(m, b, fm, frm, fb, S_right, depth-1))
+
+    fa = f(a)
+    fb = f(b)
+    fm = f((a + b) / 2.0)
+    S = simpson(f, a, b)
+    return recursive(a, b, fa, fm, fb, S, max_depth)
+
+# ---------- Wrapper that uses alpha scaling and entropy ----------
+def integrate_with_alpha(f, a, b, tol=1e-6, use_entropy=True):
+    """
+    Integrate f from a to b, using alpha scaling.
+    If use_entropy is True, sample the function at 100 points to compute
+    entropy and adjust the tolerance accordingly.
+    """
+    if use_entropy:
+        x_samples = np.linspace(a, b, 100)
+        y_samples = [f(x) for x in x_samples]
+        H = supertrace_entropy(y_samples)
+        H = max(0.0, min(H, 1.0))
+        alpha_scale = 1.0 + 2.0 * H   # range 1..3
+        print(f"Entropy = {H:.4f}, using alpha_scale = {alpha_scale:.2f}")
+    else:
+        alpha_scale = 1.0
+
+    result = adaptive_simpson(f, a, b, tol=tol, alpha_scale=alpha_scale)
+    return result
 
 # ---------- Möbius sieve ----------
 def mobius_sieve(K):
@@ -38,7 +112,6 @@ def mobius_sieve(K):
     return mu
 
 def build_elliptic_coeffs(K, smooth=True):
-    """Build C_i = μ(|i|) for i != 0, with smooth interpolation for μ=0."""
     mu = mobius_sieve(K)
     c = np.zeros(2*K + 1, dtype=float)
     for i in range(-K, K+1):
@@ -90,24 +163,12 @@ class EllipticMobiusGate:
     def amplitude(self, t):
         return np.abs(self.zeta(t))
 
-    def integrate(self, func, N=1000):
-        """
-        Numerically integrate func(t) over one period using the trapezoidal rule.
-        No SciPy dependency; uses numpy.trapz / numpy.trapezoid.
-        """
-        t_vals = np.linspace(0, self.period, N)
-        vals = np.array([func(t) for t in t_vals])
-        # Trapezoidal integration (compatible with old and new NumPy)
-        try:
-            integral = np.trapezoid(vals, t_vals)
-        except AttributeError:
-            integral = np.trapz(vals, t_vals)
-        # NORM is used in convolution but not needed here; we keep it as a comment.
-        return integral
+    def integrate(self, func, tol=1e-6):
+        """Integrate func(t) over one period using adaptive Simpson with entropy scaling."""
+        return integrate_with_alpha(func, 0, self.period, tol=tol, use_entropy=True)
 
 # ---------- M‑matrix mapping ----------
 def coeffs_to_M_matrix(coeffs, K):
-    """Build a 2×2 matrix from positive (real) and negative (imag) coefficients."""
     real_sum = 0.0
     imag_sum = 0.0
     for i, val in coeffs.items():
@@ -119,7 +180,6 @@ def coeffs_to_M_matrix(coeffs, K):
     return M
 
 def supertrace(M):
-    """Alternating sum of diagonal elements."""
     S = 0.0
     for idx, val in enumerate(np.diag(M)):
         sign = 1 if (idx % 2 == 0) else -1
@@ -143,9 +203,9 @@ def main():
     gate = EllipticMobiusGate(K, smooth=True)
     print(f"K = {K}, number of non‑zero coeffs: {len(gate.indices)}")
 
-    # 1. Integrals (using only NumPy)
-    integral_power = gate.integrate(gate.power_spectrum, N=2000)
-    integral_amplitude = gate.integrate(gate.amplitude, N=2000)
+    # 1. Integrals using adaptive integrator with entropy scaling
+    integral_power = gate.integrate(gate.power_spectrum, tol=1e-6)
+    integral_amplitude = gate.integrate(gate.amplitude, tol=1e-6)
 
     bosonic_theory = 2 * (6 / (PI * PI)) * K
     fermionic_theory = 2 * (6 / PI) * K
