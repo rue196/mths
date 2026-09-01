@@ -3,20 +3,18 @@
 mobius_m_matrix.py
 
 Maps EllipticMobiusGate coefficients to an M‑matrix and verifies
-the supertrace integrals:
-  12 vertices: ∫ |ζ(t)|² dt = 2*(6/π²)*K   (bosonic)
-   6 vertices: ∫ |ζ(t)|   dt = 2*(6/π)*K   (fermionic)
+the supertrace integrals using only NumPy (no SciPy).
 """
 
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import simpson
 
 # ---------- Constants ----------
 PI = math.pi
 E = math.e
 ALPHA = 1.0 / (PI - E)          # ≈ 2.362
+NORM = 1.0 - math.exp(-ALPHA * (PI + E))   # ≈ 1.0 (used in convolution)
 
 # ---------- Möbius sieve ----------
 def mobius_sieve(K):
@@ -93,20 +91,23 @@ class EllipticMobiusGate:
         return np.abs(self.zeta(t))
 
     def integrate(self, func, N=1000):
+        """
+        Numerically integrate func(t) over one period using the trapezoidal rule.
+        No SciPy dependency; uses numpy.trapz / numpy.trapezoid.
+        """
         t_vals = np.linspace(0, self.period, N)
         vals = np.array([func(t) for t in t_vals])
-        integral = simpson(vals, t_vals)  # or np.trapz
+        # Trapezoidal integration (compatible with old and new NumPy)
+        try:
+            integral = np.trapezoid(vals, t_vals)
+        except AttributeError:
+            integral = np.trapz(vals, t_vals)
+        # NORM is used in convolution but not needed here; we keep it as a comment.
         return integral
 
 # ---------- M‑matrix mapping ----------
 def coeffs_to_M_matrix(coeffs, K):
-    """
-    Construct a 2×2 matrix from the coefficients.
-    Positive indices (i>0) → real part (diagonal)
-    Negative indices (i<0) → imaginary part (off‑diagonal)
-    """
-    # Build a 2x2 matrix using the first two non‑zero coefficients.
-    # For simplicity, we'll use the sum of real and imaginary parts.
+    """Build a 2×2 matrix from positive (real) and negative (imag) coefficients."""
     real_sum = 0.0
     imag_sum = 0.0
     for i, val in coeffs.items():
@@ -114,12 +115,11 @@ def coeffs_to_M_matrix(coeffs, K):
             real_sum += val
         else:
             imag_sum += val
-    # Matrix: M = [[real_sum, -imag_sum], [imag_sum, real_sum]]
     M = np.array([[real_sum, -imag_sum], [imag_sum, real_sum]], dtype=complex)
     return M
 
 def supertrace(M):
-    """Alternating sum of diagonal elements (0‑based: even -> +, odd -> -)."""
+    """Alternating sum of diagonal elements."""
     S = 0.0
     for idx, val in enumerate(np.diag(M)):
         sign = 1 if (idx % 2 == 0) else -1
@@ -137,13 +137,13 @@ def entropy(S, N=2):
 def mass(S, H):
     return abs(S) * math.exp(-H)
 
-# ---------- Main demonstration ----------
+# ---------- Main ----------
 def main():
     K = 20
     gate = EllipticMobiusGate(K, smooth=True)
     print(f"K = {K}, number of non‑zero coeffs: {len(gate.indices)}")
 
-    # 1. Integrals
+    # 1. Integrals (using only NumPy)
     integral_power = gate.integrate(gate.power_spectrum, N=2000)
     integral_amplitude = gate.integrate(gate.amplitude, N=2000)
 
@@ -166,7 +166,7 @@ def main():
     print(f"Entropy H = {H:.4f}")
     print(f"Mass m = {m:.4f}")
 
-    # 3. Plot the trajectory in the complex plane (Smith chart style)
+    # 3. Plot trajectory
     t_vals = np.linspace(0, gate.period, 300)
     z_vals = np.array([gate.zeta(t) for t in t_vals])
     plt.figure(figsize=(8, 6))
@@ -174,7 +174,7 @@ def main():
     plt.scatter(z_vals.real[0], z_vals.imag[0], color='red', s=50, label='start')
     plt.xlabel('Re(ζ)')
     plt.ylabel('Im(ζ)')
-    plt.title(f'Trajectory of ζ(t) on the complex plane (K={K})')
+    plt.title(f'Trajectory of ζ(t) (K={K})')
     plt.axis('equal')
     plt.grid(True)
     plt.legend()
