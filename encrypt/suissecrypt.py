@@ -175,8 +175,8 @@ def main():
     password = "Jq:RuvoM0s2KM4qigG$YnUC'2K}VOh8?Dgfks=G<R)n~0OO"
     salt = b"saltysalt"
     key_len = 32
-    K =  120               # number of points
-    i_exp = 2              # matrix exponent
+    K =  160               # number of points
+    i_exp = 150             # matrix exponent
 
     # Derive key
     key = derive_key(password, salt, key_len, K, i_exp)
