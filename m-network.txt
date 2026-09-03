@@ -1,8 +1,3 @@
 //m-network
 
-ignorer dans ici 
-
-aussi utiliser et lire neural.pdf
-
-besoin de divulger mychrorizal
-
+ fefc88cf1530f2ae36e97073b7f285c94775e1fb21fb7720e2ef8fcc0e26e5fc72ed6a20fbf294c5473be5fb20e9722ee7ff80c20226efe73ca87a65b7ff8fd61239e7eb20a87379f4f394cf153cfaef3e
