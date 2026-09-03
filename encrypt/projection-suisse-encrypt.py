@@ -187,8 +187,8 @@ def main():
     password = "mysecretpassword"
     salt = b"saltysalt"
     key_len = 12
-    K = 1
-    i_exp = 2
+    K = 256
+    i_exp = 20
 
     # Derive key with projection entropy
     key = derive_key(password, salt, key_len, K, i_exp,
