@@ -1,3 +1,5 @@
 //m-network
 
 ignorer dans ici 
+
+aussi utiliser neural.pdf
