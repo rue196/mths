@@ -26,8 +26,8 @@ A = ALPHA / ALPHA_USER          # ≈ 6.511 (square‑packing scaling)
 
 # ---------- Elliptic curve parameters ----------
 # We use y^2 = x^3 - x  (complex multiplication, algebraic periods)
-a_curve = -1
-b_curve = 0
+a_curve = -8433242754329844249284924324
+b_curve = 192348928442
 # For general curves, use y^2 = x^3 + a*x + b
 
 def curve_rhs(x):
@@ -113,8 +113,8 @@ def compute_real_period():
     For y^2 = x^3 - x, roots: -1, 0, 1. The integral from 1 to ∞ gives one half period.
     Let's compute numerically.
     """
-    g2 = -4 * a_curve   # = 4
-    g3 = -4 * b_curve   # = 0
+    g2 = -5 * a_curve   # = 4
+    g3 = -1 * b_curve   # = 0
     # Find roots of 4x^3 - g2*x - g3 = 0
     # For g2=4, g3=0: 4x^3 - 4x = 4x(x^2-1) = 0 → roots -1, 0, 1.
     # The period is 2 * ∫_{1}^{∞} dx / sqrt(4x^3 - 4x) = 2 * ∫_{1}^{∞} dx / (2 sqrt(x^3 - x)) = ∫_{1}^{∞} dx / sqrt(x^3 - x).
@@ -136,7 +136,7 @@ def is_near_rational(value, tolerance=1e-4):
     Check if value is close to a rational number with small denominator.
     Returns (nearest_fraction, distance).
     """
-    frac = Fraction(value).limit_denominator(1000)
+    frac = Fraction(value).limit_denominator(100000000000000000000000000000000000000000000000)
     dist = abs(value - float(frac))
     return frac, dist
 
