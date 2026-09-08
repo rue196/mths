@@ -1,6 +1,6 @@
 Archive, made mostly with coding assistance from deepseek.
 
-Other specific llms used and insight to thinking and compiling my ideas as well as time stamps.
+Other specific llms used and insight to thinking and compiling my ideas.
 
 (projection operator) [click here](https://copilot.microsoft.com/shares/aqgt2iQhjUHf33vJhg6w6) 
 
