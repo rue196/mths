@@ -7,3 +7,5 @@ Other specific llms used and insight to thinking and compiling my ideas.
 and (integral constant) [click here](https://claude.ai/share/3e4d6189-3dcd-473e-b1b3-f4e9d622006f) from June this year
 
 Unpolished economics binomial [click here](https://claude.ai/share/09d8400b-3d8d-465e-94a3-f99a2bb3c9c7) july this year
+
+rest was with deep seek, most ideas are my own. 
