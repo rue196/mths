@@ -6,4 +6,4 @@ encrypt et utilizer m-suisse-projection.py
 
 aussi utilizer signal 3d-6d avec le temp par signals si ill te plait a 2c
 
-ouublier le throughput-supertrace aussie
+ouublier le throughput-supertrace.py aussie
