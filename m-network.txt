@@ -3,3 +3,5 @@
 changer weights a .mobi
 
 encrypt et utilizer m-suisse-projection.py
+
+aussi utilizer signal 3d-6d avec le temp par signals si ill te plait a 2c
