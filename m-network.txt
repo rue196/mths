@@ -1,3 +1,5 @@
 //m-network
 
 changer weights a .mobi
+
+encrypt et utilizer m-suisse-projection.py
