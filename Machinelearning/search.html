@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDE Search Engine</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1 { color: #2c3e50; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px 24px; background: #3498db; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+        .result { background: white; padding: 15px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .result h3 { margin: 0 0 5px 0; color: #2c3e50; }
+        .result p { margin: 0; color: #555; }
+        .result .sim { font-size: 14px; color: #888; }
+        #status { color: #999; }
+    </style>
+</head>
+<body>
+    <h1>♢ PDE Semantic Search</h1>
+    <div class="search-box">
+        <input type="text" id="query" placeholder="Search documents..." />
+        <button id="searchBtn">Search</button>
+    </div>
+    <div id="results"></div>
+    <div id="status">Enter a query and click Search.</div>
+
+    <script src="# app.py">
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('query').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        function performSearch() {
+            const query = document.getElementById('query').value.trim();
+            if (!query) {
+                document.getElementById('results').innerHTML = '';
+                document.getElementById('status').textContent = 'Please enter a query.';
+                return;
+            }
+            document.getElementById('status').textContent = 'Searching...';
+            fetch(`/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(results => {
+                    document.getElementById('status').textContent = `Found ${results.length} results.`;
+                    const container = document.getElementById('results');
+                    container.innerHTML = '';
+                    if (results.length === 0) {
+                        container.innerHTML = '<p>No results found.</p>';
+                        return;
+                    }
+                    results.forEach(r => {
+                        const div = document.createElement('div');
+                        div.className = 'result';
+                        div.innerHTML = `
+                            <h3>${r.title}</h3>
+                            <p>${r.content}</p>
+                            <div class="sim">Similarity: ${r.similarity.toFixed(4)}</div>
+                        `;
+                        container.appendChild(div);
+                    });
+                })
+                .catch(err => {
+                    document.getElementById('status').textContent = 'Error: ' + err.message;
+                });
+        }
+    </script>
+</body>
+</html>
