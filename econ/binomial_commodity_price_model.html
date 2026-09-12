@@ -1,0 +1,346 @@
+
+<style>
+  .panel { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; color: var(--color-text-secondary); }
+  .ctrl label { min-width: 200px; }
+  .ctrl input[type=range] { flex: 1; }
+  .val { min-width: 48px; text-align: right; font-weight: 500; font-size: 13px; color: var(--color-text-primary); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
+  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .metric-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+  .wave-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-right: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+  .section-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 10px; }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .tab { padding: 5px 14px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); font-size: 12px; cursor: pointer; background: transparent; color: var(--color-text-secondary); }
+  .tab.active { background: var(--color-background-info); color: var(--color-text-info); border-color: var(--color-border-info); }
+  .infra-bar { height: 8px; border-radius: 4px; background: var(--color-background-secondary); margin-top: 4px; overflow: hidden; }
+  .infra-fill { height: 100%; border-radius: 4px; background: #1D9E75; transition: width 0.3s; }
+</style>
+
+<h2 class="sr-only">Interactive binomial commodity price model showing scarcity, access transition, and consumer fatigue phases across demand waves</h2>
+
+<div style="padding: 0.5rem 0;">
+
+<div class="panel">
+  <div class="section-title">Model parameters</div>
+
+  <div class="ctrl"><label>Base cost C₀ (scarcity floor)</label>
+    <input type="range" id="c0" min="50" max="500" step="1" value="200">
+    <span class="val" id="c0v">$200</span></div>
+
+  <div class="ctrl"><label>Extraction failure prob. p (0=easy, 1=inaccessible)</label>
+    <input type="range" id="pfail" min="0.01" max="0.95" step="0.01" value="0.55">
+    <span class="val" id="pfailv">0.55</span></div>
+
+  <div class="ctrl"><label>Access threshold n* (trials before transition)</label>
+    <input type="range" id="nstar" min="5" max="60" step="1" value="20">
+    <span class="val" id="nstarv">20</span></div>
+
+  <div class="ctrl"><label>Demand-density decay λ (inverse-exp steepness)</label>
+    <input type="range" id="lam" min="0.02" max="0.4" step="0.01" value="0.12">
+    <span class="val" id="lamv">0.12</span></div>
+
+  <div class="ctrl"><label>Infrastructure quality I (0–1)</label>
+    <input type="range" id="infra" min="0.1" max="1.0" step="0.01" value="0.6">
+    <span class="val" id="infrav">0.60</span>
+    <div style="width:80px"><div class="infra-bar"><div class="infra-fill" id="infrabar" style="width:60%"></div></div></div>
+  </div>
+
+  <div class="ctrl"><label>Raw material density ρ (0–1)</label>
+    <input type="range" id="rho" min="0.1" max="1.0" step="0.01" value="0.5">
+    <span class="val" id="rhov">0.50</span>
+    <div style="width:80px"><div class="infra-bar"><div class="infra-fill" id="rhobar" style="width:50%; background:#378ADD"></div></div></div>
+  </div>
+
+  <div class="ctrl"><label>Consumer fatigue onset (wave fraction)</label>
+    <input type="range" id="fatigue" min="0.3" max="0.9" step="0.01" value="0.6">
+    <span class="val" id="fatiguev">0.60</span></div>
+
+  <div class="ctrl"><label>Number of waves (decades)</label>
+    <input type="range" id="waves" min="3" max="8" step="1" value="5">
+    <span class="val" id="wavesv">5</span></div>
+</div>
+
+<div class="grid2">
+  <div class="metric"><div class="metric-label">Peak scarcity price</div><div class="metric-val" id="m-peak">—</div></div>
+  <div class="metric"><div class="metric-label">Price floor (infra + density)</div><div class="metric-val" id="m-floor">—</div></div>
+  <div class="metric"><div class="metric-label">Fatigue onset wave</div><div class="metric-val" id="m-fatigue">—</div></div>
+  <div class="metric"><div class="metric-label">% price drop peak→floor</div><div class="metric-val" id="m-drop">—</div></div>
+</div>
+
+<div class="tab-row">
+  <button class="tab active" onclick="setView('price')">Price curve</button>
+  <button class="tab" onclick="setView('demand')">Demand & fatigue</button>
+  <button class="tab" onclick="setView('infra')">Infra/density sensitivity</button>
+</div>
+
+<div class="panel" style="padding-bottom: 0.5rem;">
+  <div style="position: relative; width: 100%; height: 300px;">
+    <canvas id="mainChart" role="img" aria-label="Commodity price model across trial waves">Price model chart</canvas>
+  </div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="panel">
+  <div class="section-title">Wave classification</div>
+  <div id="wavebadges" style="line-height: 2;"></div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let chartInst = null;
+let currentView = 'price';
+
+const waveColors = ['#534AB7','#1D9E75','#D85A30','#D4537E','#378ADD','#BA7517','#639922','#888780'];
+const waveNames = ['W1','W2','W3','W4','W5','W6','W7','W8'];
+
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  update();
+}
+
+function getParams() {
+  return {
+    c0: +document.getElementById('c0').value,
+    p: +document.getElementById('pfail').value,
+    nstar: +document.getElementById('nstar').value,
+    lam: +document.getElementById('lam').value,
+    infra: +document.getElementById('infra').value,
+    rho: +document.getElementById('rho').value,
+    fatigueF: +document.getElementById('fatigue').value,
+    numWaves: +document.getElementById('waves').value,
+  };
+}
+
+function computeModel(params) {
+  const { c0, p, nstar, lam, infra, rho, fatigueF, numWaves } = params;
+  const totalTrials = numWaves * 10;
+  const prices = [];
+  const demands = [];
+  const phases = [];
+
+  const peakScarcity = c0 * Math.pow(1 - p, -nstar);
+  const priceFloor = (c0 * 0.15) / (infra * rho);
+
+  for (let n = 1; n <= totalTrials; n++) {
+    const wave = Math.floor((n - 1) / 10);
+    const pAdj = Math.max(0.01, p * Math.pow(0.85, wave));
+
+    let price, demand, phase;
+
+    if (n < nstar) {
+      price = c0 * Math.pow(1 - pAdj, -n);
+      demand = 0.2 * (n / nstar);
+      phase = 'scarcity';
+    } else {
+      const t = n - nstar;
+      const baseDecay = peakScarcity * Math.exp(-lam * t);
+      const fatigueOnset = fatigueF * totalTrials;
+      let fatigueMod = 1.0;
+      if (n > fatigueOnset) {
+        const ft = (n - fatigueOnset) / (totalTrials - fatigueOnset);
+        fatigueMod = 1 + 0.3 * ft;
+      }
+      price = Math.max(priceFloor, baseDecay * fatigueMod + priceFloor * (1 - Math.exp(-lam * t * 0.1)));
+
+      if (n <= fatigueOnset) {
+        demand = Math.min(1.0, 0.2 + 0.8 * (1 - Math.exp(-0.08 * t)));
+        phase = 'access';
+      } else {
+        const ft = (n - fatigueOnset) / (totalTrials - fatigueOnset);
+        demand = Math.max(0.3, 1.0 - 0.5 * ft * ft);
+        phase = 'fatigue';
+      }
+    }
+
+    prices.push(+price.toFixed(2));
+    demands.push(+(demand * 100).toFixed(1));
+    phases.push(phase);
+  }
+
+  return { prices, demands, phases, peakScarcity, priceFloor };
+}
+
+function update() {
+  const params = getParams();
+
+  document.getElementById('c0v').textContent = '$' + params.c0;
+  document.getElementById('pfailv').textContent = params.p.toFixed(2);
+  document.getElementById('nstarv').textContent = params.nstar;
+  document.getElementById('lamv').textContent = params.lam.toFixed(2);
+  document.getElementById('infrav').textContent = params.infra.toFixed(2);
+  document.getElementById('infrabar').style.width = (params.infra * 100) + '%';
+  document.getElementById('rhov').textContent = params.rho.toFixed(2);
+  document.getElementById('rhobar').style.width = (params.rho * 100) + '%';
+  document.getElementById('fatiguev').textContent = params.fatigueF.toFixed(2);
+  document.getElementById('wavesv').textContent = params.numWaves;
+
+  const { prices, demands, phases, peakScarcity, priceFloor } = computeModel(params);
+  const totalTrials = params.numWaves * 10;
+  const labels = Array.from({ length: totalTrials }, (_, i) => 'n' + (i + 1));
+
+  const drop = peakScarcity > 0 ? ((peakScarcity - priceFloor) / peakScarcity * 100) : 0;
+  document.getElementById('m-peak').textContent = '$' + peakScarcity.toFixed(0);
+  document.getElementById('m-floor').textContent = '$' + priceFloor.toFixed(2);
+  const fatigueWave = Math.ceil(params.fatigueF * params.numWaves);
+  document.getElementById('m-fatigue').textContent = 'W' + fatigueWave;
+  document.getElementById('m-drop').textContent = drop.toFixed(1) + '%';
+
+  const waveBadges = document.getElementById('wavebadges');
+  waveBadges.innerHTML = '';
+  for (let w = 0; w < params.numWaves; w++) {
+    const wStart = w * 10 + 1;
+    const wEnd = (w + 1) * 10;
+    const avgP = prices.slice(w * 10, (w + 1) * 10).reduce((a, b) => a + b, 0) / 10;
+    const pAdj = (params.p * Math.pow(0.85, w)).toFixed(2);
+    const span = document.createElement('span');
+    span.className = 'wave-badge';
+    span.style.background = waveColors[w] + '22';
+    span.style.color = waveColors[w];
+    span.style.border = '0.5px solid ' + waveColors[w] + '66';
+    span.textContent = waveNames[w] + ' (n' + wStart + '–n' + wEnd + ') · p=' + pAdj + ' · avg $' + avgP.toFixed(0);
+    waveBadges.appendChild(span);
+  }
+
+  let datasets = [];
+  let legendItems = [];
+
+  if (currentView === 'price') {
+    const segColors = prices.map((_, i) => {
+      const ph = phases[i];
+      if (ph === 'scarcity') return '#D85A30';
+      if (ph === 'access') return '#1D9E75';
+      return '#534AB7';
+    });
+
+    datasets = [{
+      label: 'Price',
+      data: prices,
+      borderColor: '#378ADD',
+      backgroundColor: segColors,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      segment: {
+        borderColor: ctx => {
+          const ph = phases[ctx.p1DataIndex];
+          if (ph === 'scarcity') return '#D85A30';
+          if (ph === 'access') return '#1D9E75';
+          return '#534AB7';
+        }
+      }
+    }, {
+      label: 'Price floor',
+      data: prices.map(() => priceFloor),
+      borderColor: '#BA7517',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false,
+    }];
+    legendItems = [
+      { color: '#D85A30', label: 'Scarcity phase' },
+      { color: '#1D9E75', label: 'Access / decay' },
+      { color: '#534AB7', label: 'Fatigue plateau' },
+      { color: '#BA7517', label: 'Price floor (infra+density)' },
+    ];
+
+  } else if (currentView === 'demand') {
+    datasets = [{
+      label: 'Demand %',
+      data: demands,
+      borderColor: '#1D9E75',
+      backgroundColor: 'rgba(29,158,117,0.08)',
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true,
+      yAxisID: 'y2',
+    }, {
+      label: 'Price',
+      data: prices,
+      borderColor: '#D85A30',
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      yAxisID: 'y',
+    }];
+    legendItems = [
+      { color: '#1D9E75', label: 'Demand % (right axis)' },
+      { color: '#D85A30', label: 'Price (left axis)' },
+    ];
+
+  } else {
+    const rhoRange = [0.1, 0.25, 0.5, 0.75, 1.0];
+    datasets = rhoRange.map((r, i) => {
+      const modParams = { ...params, rho: r };
+      const { prices: pp } = computeModel(modParams);
+      return {
+        label: 'ρ=' + r,
+        data: pp,
+        borderColor: waveColors[i],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: false,
+      };
+    });
+    legendItems = rhoRange.map((r, i) => ({ color: waveColors[i], label: 'ρ=' + r }));
+  }
+
+  const legendEl = document.getElementById('legend');
+  legendEl.innerHTML = legendItems.map(l =>
+    `<span style="display:flex;align-items:center;gap:4px;"><span class="legend-dot" style="background:${l.color}"></span>${l.label}</span>`
+  ).join('');
+
+  const yAxes = currentView === 'demand' ? {
+    y: { title: { display: true, text: 'Price ($)', font: { size: 11 } }, ticks: { callback: v => '$' + v.toFixed(0) } },
+    y2: { position: 'right', title: { display: true, text: 'Demand %', font: { size: 11 } }, grid: { drawOnChartArea: false }, ticks: { callback: v => v.toFixed(0) + '%' } }
+  } : {
+    y: { title: { display: true, text: 'Price ($)', font: { size: 11 } }, ticks: { callback: v => '$' + v.toFixed(0) } }
+  };
+
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: ctx => {
+            if (ctx.dataset.yAxisID === 'y2') return 'Demand: ' + ctx.parsed.y.toFixed(1) + '%';
+            return 'Price: $' + ctx.parsed.y.toFixed(2);
+          },
+          title: ctx => {
+            const n = ctx[0].dataIndex + 1;
+            const w = Math.ceil(n / 10);
+            return 'Trial n=' + n + '  ·  Wave W' + w + ' (decade ' + w + ')';
+          }
+        }
+      }},
+      scales: {
+        x: {
+          title: { display: true, text: 'Trials n (binomial access attempts)', font: { size: 11 } },
+          ticks: { autoSkip: true, maxTicksLimit: 12, font: { size: 10 } }
+        },
+        ...yAxes
+      },
+      animation: { duration: 300 },
+    }
+  });
+}
+
+document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', update));
+update();
+</script>
