@@ -1,0 +1,381 @@
+
+<style>
+  .panel { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 13px; color: var(--color-text-secondary); }
+  .ctrl label { min-width: 210px; }
+  .ctrl input[type=range] { flex: 1; }
+  .val { min-width: 52px; text-align: right; font-weight: 500; font-size: 13px; color: var(--color-text-primary); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
+  .metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .metric-val { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { padding: 5px 13px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); font-size: 12px; cursor: pointer; background: transparent; color: var(--color-text-secondary); }
+  .tab.active { background: var(--color-background-info); color: var(--color-text-info); border-color: var(--color-border-info); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+  .section-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 10px; }
+  .wave-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .wbadge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+</style>
+
+<h2 class="sr-only">Global population projection using binomial commodity wave model, showing scarcity, access, and demographic transition phases from 1800 to 2200</h2>
+
+<div style="padding: 0.5rem 0;">
+
+<div class="panel">
+  <div class="section-title">Population model parameters</div>
+
+  <div class="ctrl"><label>Baseline population 1800 (billions)</label>
+    <input type="range" id="p0" min="0.5" max="1.5" step="0.05" value="1.0">
+    <span class="val" id="p0v">1.00B</span></div>
+
+  <div class="ctrl"><label>Malthusian ceiling — scarcity era (B)</label>
+    <input type="range" id="kscarcity" min="1" max="4" step="0.1" value="2.0">
+    <span class="val" id="kscarcityv">2.0B</span></div>
+
+  <div class="ctrl"><label>Access wave n* (decade of transition)</label>
+    <input type="range" id="nstar" min="1" max="6" step="1" value="2">
+    <span class="val" id="nstarv">W2 (~1850)</span></div>
+
+  <div class="ctrl"><label>Post-access growth rate λ (commodity boom)</label>
+    <input type="range" id="lam" min="0.01" max="0.12" step="0.005" value="0.055">
+    <span class="val" id="lamv">0.055</span></div>
+
+  <div class="ctrl"><label>Infrastructure quality I (health, food, energy)</label>
+    <input type="range" id="infra" min="0.1" max="1.0" step="0.01" value="0.72">
+    <span class="val" id="infrav">0.72</span></div>
+
+  <div class="ctrl"><label>Resource density ρ (arable land, water, fuel)</label>
+    <input type="range" id="rho" min="0.1" max="1.0" step="0.01" value="0.58">
+    <span class="val" id="rhov">0.58</span></div>
+
+  <div class="ctrl"><label>Demographic fatigue onset (wave fraction)</label>
+    <input type="range" id="fatigue" min="0.3" max="0.9" step="0.01" value="0.62">
+    <span class="val" id="fatiguev">0.62</span></div>
+
+  <div class="ctrl"><label>Long-run carrying capacity K∞ (billions)</label>
+    <input type="range" id="kinf" min="6" max="20" step="0.5" value="11.0">
+    <span class="val" id="kinfv">11.0B</span></div>
+
+  <div class="ctrl"><label>Post-peak contraction rate</label>
+    <input type="range" id="contract" min="0.001" max="0.04" step="0.001" value="0.008">
+    <span class="val" id="contractv">0.008</span></div>
+
+  <div class="ctrl"><label>Projection end (waves / decades from 1800)</label>
+    <input type="range" id="totalW" min="8" max="20" step="1" value="14">
+    <span class="val" id="totalWv">2200</span></div>
+</div>
+
+<div class="grid4">
+  <div class="metric"><div class="metric-label">Peak population</div><div class="metric-val" id="m-peak">—</div></div>
+  <div class="metric"><div class="metric-label">Peak year</div><div class="metric-val" id="m-peakyr">—</div></div>
+  <div class="metric"><div class="metric-label">2100 population</div><div class="metric-val" id="m-2100">—</div></div>
+  <div class="metric"><div class="metric-label">End-state population</div><div class="metric-val" id="m-end">—</div></div>
+</div>
+
+<div class="tab-row">
+  <button class="tab active" onclick="setView('pop', event)">Population</button>
+  <button class="tab" onclick="setView('growth', event)">Growth rate</button>
+  <button class="tab" onclick="setView('carrying', event)">Carrying capacity</button>
+  <button class="tab" onclick="setView('fertility', event)">Fertility analog</button>
+</div>
+
+<div class="panel" style="padding-bottom: 0.5rem;">
+  <div style="position: relative; width: 100%; height: 320px;">
+    <canvas id="mainChart" role="img" aria-label="Global population projection chart">Population projection</canvas>
+  </div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="panel">
+  <div class="section-title">Wave classification — decade bands</div>
+  <div class="wave-row" id="wavebadges"></div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let chartInst = null;
+let currentView = 'pop';
+
+const waveColors = ['#D85A30','#BA7517','#1D9E75','#378ADD','#534AB7','#D4537E','#639922','#888780','#5DCAA5','#7F77DD','#EF9F27','#E24B4A','#0F6E56','#185FA5'];
+
+const waveLabels = {
+  0: 'W1 Pre-industrial', 1: 'W2 Industrial rev.', 2: 'W3 Germ theory',
+  3: 'W4 Green revolution', 4: 'W5 Antibiotics/vaccines', 5: 'W6 Digital/logistics',
+  6: 'W7 Precision agri.', 7: 'W8 Energy transition', 8: 'W9 Biotech',
+  9: 'W10 Post-scarcity?', 10: 'W11', 11: 'W12', 12: 'W13', 13: 'W14'
+};
+
+function setView(v, e) {
+  currentView = v;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (e && e.target) e.target.classList.add('active');
+  update();
+}
+
+function getParams() {
+  return {
+    p0: +document.getElementById('p0').value,
+    kScarcity: +document.getElementById('kscarcity').value,
+    nstar: +document.getElementById('nstar').value,
+    lam: +document.getElementById('lam').value,
+    infra: +document.getElementById('infra').value,
+    rho: +document.getElementById('rho').value,
+    fatigueF: +document.getElementById('fatigue').value,
+    kInf: +document.getElementById('kinf').value,
+    contract: +document.getElementById('contract').value,
+    totalW: +document.getElementById('totalW').value,
+  };
+}
+
+function computeModel(params) {
+  const { p0, kScarcity, nstar, lam, infra, rho, fatigueF, kInf, contract, totalW } = params;
+  const totalDecades = totalW;
+  const pop = [p0];
+  const growthRates = [0];
+  const carryingCap = [];
+  const fertility = [];
+  const phases = [];
+  const years = [];
+
+  const fatigueOnset = Math.floor(fatigueF * totalDecades);
+
+  for (let w = 0; w < totalDecades; w++) {
+    years.push(1800 + w * 10);
+    const t = w - nstar;
+    let K, gr, phase;
+
+    if (w < nstar) {
+      K = kScarcity * (1 + 0.1 * w);
+      gr = 0.005 + 0.003 * w;
+      phase = 'scarcity';
+    } else if (w < fatigueOnset) {
+      const accessT = w - nstar;
+      K = kScarcity + (kInf - kScarcity) * (1 - Math.exp(-lam * infra * rho * accessT * 3));
+      gr = lam * infra * rho * (1 - pop[w] / K) * 1.5;
+      gr = Math.max(0.002, Math.min(0.04, gr));
+      phase = 'access';
+    } else {
+      const ft = (w - fatigueOnset) / (totalDecades - fatigueOnset);
+      K = kInf * (1 - 0.1 * ft * ft);
+      gr = lam * 0.3 * (1 - ft) * infra * rho - contract * ft;
+      phase = 'fatigue';
+    }
+
+    carryingCap.push(+K.toFixed(3));
+    phases.push(phase);
+
+    const prevPop = pop[w];
+    let newPop;
+    if (w < nstar) {
+      newPop = prevPop * (1 + gr) * Math.min(1, K / prevPop);
+    } else if (phase === 'fatigue') {
+      const ft = (w - fatigueOnset) / (totalDecades - fatigueOnset);
+      newPop = prevPop + prevPop * gr * (1 - prevPop / K);
+      newPop = Math.max(prevPop * 0.97, newPop);
+    } else {
+      newPop = prevPop + prevPop * gr * (1 - prevPop / K);
+    }
+    newPop = Math.max(0.5, newPop);
+    pop.push(+newPop.toFixed(3));
+    growthRates.push(+(gr * 100).toFixed(3));
+
+    const fertBase = 5.5;
+    let fert;
+    if (w < nstar) fert = fertBase - 0.1 * w;
+    else if (w < fatigueOnset) {
+      const accessT = w - nstar;
+      fert = fertBase - 2.5 * (1 - Math.exp(-0.15 * accessT));
+    } else {
+      const ft = (w - fatigueOnset) / (totalDecades - fatigueOnset);
+      fert = 2.1 * (1 + 0.2 * ft * (1 - ft));
+    }
+    fertility.push(+Math.max(1.2, fert).toFixed(2));
+  }
+  years.push(1800 + totalDecades * 10);
+
+  return { pop, growthRates, carryingCap, fertility, phases, years };
+}
+
+function update() {
+  const params = getParams();
+
+  document.getElementById('p0v').textContent = params.p0.toFixed(2) + 'B';
+  document.getElementById('kscarcityv').textContent = params.kScarcity.toFixed(1) + 'B';
+  const waveYear = 1800 + params.nstar * 10;
+  document.getElementById('nstarv').textContent = 'W' + (params.nstar + 1) + ' (~' + waveYear + ')';
+  document.getElementById('lamv').textContent = params.lam.toFixed(3);
+  document.getElementById('infrav').textContent = params.infra.toFixed(2);
+  document.getElementById('rhov').textContent = params.rho.toFixed(2);
+  document.getElementById('fatiguev').textContent = params.fatigueF.toFixed(2);
+  document.getElementById('kinfv').textContent = params.kInf.toFixed(1) + 'B';
+  document.getElementById('contractv').textContent = params.contract.toFixed(3);
+  document.getElementById('totalWv').textContent = (1800 + params.totalW * 10).toString();
+
+  const { pop, growthRates, carryingCap, fertility, phases, years } = computeModel(params);
+
+  const peakPop = Math.max(...pop);
+  const peakIdx = pop.indexOf(peakPop);
+  const peakYear = years[peakIdx];
+  const yr2100idx = years.indexOf(2100);
+  const pop2100 = yr2100idx >= 0 ? pop[yr2100idx] : null;
+  const endPop = pop[pop.length - 1];
+
+  document.getElementById('m-peak').textContent = peakPop.toFixed(2) + 'B';
+  document.getElementById('m-peakyr').textContent = peakYear.toString();
+  document.getElementById('m-2100').textContent = pop2100 ? pop2100.toFixed(2) + 'B' : 'N/A';
+  document.getElementById('m-end').textContent = endPop.toFixed(2) + 'B';
+
+  const waveBadges = document.getElementById('wavebadges');
+  waveBadges.innerHTML = '';
+  for (let w = 0; w < params.totalW; w++) {
+    const ph = phases[w];
+    const color = waveColors[w % waveColors.length];
+    const span = document.createElement('span');
+    span.className = 'wbadge';
+    span.style.background = color + '22';
+    span.style.color = color;
+    span.style.border = '0.5px solid ' + color + '66';
+    span.title = waveLabels[w] || ('W' + (w + 1));
+    span.textContent = 'W' + (w + 1) + ' ' + (1800 + w * 10) + 's · ' + ph.charAt(0).toUpperCase() + ph.slice(1) + ' · pop ' + (pop[w] ? pop[w].toFixed(2) + 'B' : '—');
+    waveBadges.appendChild(span);
+  }
+
+  const labels = years.slice(0, pop.length).map(y => y.toString());
+  let datasets = [], legendItems = [];
+
+  const phaseColor = (i) => {
+    const ph = phases[Math.min(i, phases.length - 1)];
+    if (ph === 'scarcity') return '#D85A30';
+    if (ph === 'access') return '#1D9E75';
+    return '#534AB7';
+  };
+
+  if (currentView === 'pop') {
+    datasets = [{
+      label: 'Population (B)',
+      data: pop,
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true,
+      backgroundColor: 'rgba(55,138,221,0.08)',
+      segment: { borderColor: ctx => phaseColor(ctx.p1DataIndex) }
+    }, {
+      label: 'Carrying capacity K',
+      data: [...carryingCap, carryingCap[carryingCap.length - 1]],
+      borderColor: '#BA7517',
+      borderWidth: 1,
+      borderDash: [5, 4],
+      pointRadius: 0,
+      tension: 0.4,
+      fill: false,
+    }];
+    legendItems = [
+      { color: '#D85A30', label: 'Scarcity era' },
+      { color: '#1D9E75', label: 'Access / growth boom' },
+      { color: '#534AB7', label: 'Demographic transition' },
+      { color: '#BA7517', label: 'Carrying capacity K' },
+    ];
+  } else if (currentView === 'growth') {
+    datasets = [{
+      label: 'Growth rate %/decade',
+      data: growthRates,
+      borderColor: '#1D9E75',
+      backgroundColor: 'rgba(29,158,117,0.1)',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true,
+      segment: { borderColor: ctx => phaseColor(ctx.p1DataIndex) }
+    }];
+    legendItems = [{ color: '#1D9E75', label: 'Growth rate %/decade' }];
+  } else if (currentView === 'carrying') {
+    const infraLevels = [0.3, 0.5, 0.72, 0.9, 1.0];
+    datasets = infraLevels.map((iv, i) => {
+      const { carryingCap: cc } = computeModel({ ...params, infra: iv });
+      return {
+        label: 'I=' + iv,
+        data: [...cc, cc[cc.length - 1]],
+        borderColor: waveColors[i],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: false,
+      };
+    });
+    legendItems = infraLevels.map((iv, i) => ({ color: waveColors[i], label: 'I=' + iv }));
+  } else {
+    datasets = [{
+      label: 'Fertility rate (children/woman)',
+      data: fertility,
+      borderColor: '#D4537E',
+      backgroundColor: 'rgba(212,83,126,0.08)',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true,
+    }, {
+      label: 'Replacement level (2.1)',
+      data: fertility.map(() => 2.1),
+      borderColor: '#888780',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false,
+    }];
+    legendItems = [
+      { color: '#D4537E', label: 'Fertility rate' },
+      { color: '#888780', label: 'Replacement (2.1)' },
+    ];
+  }
+
+  const legendEl = document.getElementById('legend');
+  legendEl.innerHTML = legendItems.map(l =>
+    `<span style="display:flex;align-items:center;gap:4px;"><span class="legend-dot" style="background:${l.color}"></span>${l.label}</span>`
+  ).join('');
+
+  const yLabel = currentView === 'pop' || currentView === 'carrying' ? 'Population (billions)'
+    : currentView === 'growth' ? 'Growth rate (%/decade)'
+    : 'Fertility rate';
+  const yCb = currentView === 'pop' || currentView === 'carrying' ? v => v.toFixed(1) + 'B'
+    : currentView === 'growth' ? v => v.toFixed(2) + '%'
+    : v => v.toFixed(1);
+
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label + ': ' + yCb(ctx.parsed.y),
+            title: ctx => ctx[0].label + ' · Wave W' + (Math.floor((+ctx[0].label - 1800) / 10) + 1)
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Year (each step = 1 decade / 1 wave)', font: { size: 11 } },
+          ticks: { autoSkip: true, maxTicksLimit: 14, font: { size: 10 } }
+        },
+        y: {
+          title: { display: true, text: yLabel, font: { size: 11 } },
+          ticks: { callback: yCb }
+        }
+      },
+      animation: { duration: 250 }
+    }
+  });
+}
+
+document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', update));
+update();
+</script>

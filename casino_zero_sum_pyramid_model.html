@@ -1,0 +1,292 @@
+
+<style>
+  body,*{box-sizing:border-box;margin:0;padding:0}
+  .wrap{padding:1rem 0;font-family:var(--font-sans,system-ui)}
+  .panel{background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+  .ctrl{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;color:var(--text-secondary)}
+  .ctrl label{min-width:220px}
+  .ctrl input[type=range]{flex:1}
+  .val{min-width:60px;text-align:right;font-weight:500;font-size:13px;color:var(--text-primary)}
+  .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
+  .mcard{background:var(--surface-1);border-radius:8px;padding:0.75rem 1rem}
+  .ml{font-size:11px;color:var(--text-muted);margin-bottom:3px}
+  .mv{font-size:18px;font-weight:500;color:var(--text-primary)}
+  .tab-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+  .tab{padding:5px 13px;border-radius:20px;border:0.5px solid var(--border-strong);font-size:12px;cursor:pointer;background:transparent;color:var(--text-secondary);transition:all .15s}
+  .tab.on{background:var(--bg-accent);color:var(--text-accent);border-color:var(--border-accent)}
+  .leg{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-secondary);margin-top:8px}
+  .ldot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px}
+  .sec-title{font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:10px}
+  .note{font-size:12px;color:var(--text-muted);margin-top:6px}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only">Casino zero-sum pyramid economic model — interactive simulation of slot base, table games, loan layer, and house extraction across player cohorts</h2>
+
+<div class="panel">
+  <div class="sec-title">Casino pool parameters</div>
+  <div class="ctrl"><label>Total money wagered per session (pool $)</label>
+    <input type="range" id="pool" min="100000" max="10000000" step="50000" value="2000000">
+    <span class="val" id="poolv">$2.0M</span></div>
+  <div class="ctrl"><label>Slot base share of wagered pool (%)</label>
+    <input type="range" id="slotShare" min="40" max="85" step="1" value="65">
+    <span class="val" id="slotSv">65%</span></div>
+  <div class="ctrl"><label>Slot house edge (return-to-player inverse)</label>
+    <input type="range" id="slotEdge" min="0.03" max="0.15" step="0.005" value="0.075">
+    <span class="val" id="slotEv">7.5%</span></div>
+  <div class="ctrl"><label>Table games house edge</label>
+    <input type="range" id="tableEdge" min="0.005" max="0.08" step="0.005" value="0.025">
+    <span class="val" id="tableEv">2.5%</span></div>
+  <div class="ctrl"><label>Debt layer — loan entry ($, high raw material cost)</label>
+    <input type="range" id="loanEntry" min="1000" max="50000" step="500" value="10000">
+    <span class="val" id="loanEv">$10K</span></div>
+  <div class="ctrl"><label>Predatory loan interest rate (APR %)</label>
+    <input type="range" id="loanAPR" min="10" max="120" step="5" value="35">
+    <span class="val" id="loanAv">35%</span></div>
+  <div class="ctrl"><label>% of table players who take loans</label>
+    <input type="range" id="loanFrac" min="0.01" max="0.4" step="0.01" value="0.12">
+    <span class="val" id="loanFv">12%</span></div>
+  <div class="ctrl"><label>Number of players (session)</label>
+    <input type="range" id="players" min="50" max="5000" step="50" value="500">
+    <span class="val" id="playersv">500</span></div>
+  <div class="ctrl"><label>Simulation waves n (binomial sessions)</label>
+    <input type="range" id="waves" min="5" max="50" step="1" value="20">
+    <span class="val" id="wavesv">20</span></div>
+</div>
+
+<div class="grid4">
+  <div class="mcard"><div class="ml">House extraction (slots)</div><div class="mv" id="m1">—</div></div>
+  <div class="mcard"><div class="ml">House extraction (tables)</div><div class="mv" id="m2">—</div></div>
+  <div class="mcard"><div class="ml">Debt layer extraction</div><div class="mv" id="m3">—</div></div>
+  <div class="mcard"><div class="ml">Net player pool loss</div><div class="mv" id="m4">—</div></div>
+</div>
+<div class="grid4">
+  <div class="mcard"><div class="ml">Avg loss per player</div><div class="mv" id="m5">—</div></div>
+  <div class="mcard"><div class="ml">Slot pyramid base share</div><div class="mv" id="m6">—</div></div>
+  <div class="mcard"><div class="ml">Debt-loaded players</div><div class="mv" id="m7">—</div></div>
+  <div class="mcard"><div class="ml">Zero-sum transfer ratio</div><div class="mv" id="m8">—</div></div>
+</div>
+
+<div class="tab-row">
+  <button class="tab on" onclick="setV('pyramid',this)">Pyramid flow</button>
+  <button class="tab" onclick="setV('depletion',this)">Pool depletion</button>
+  <button class="tab" onclick="setV('debt',this)">Debt cascade</button>
+  <button class="tab" onclick="setV('compare',this)">vs. plus-sum</button>
+</div>
+
+<div class="panel" style="padding-bottom:.5rem">
+  <div style="position:relative;width:100%;height:320px">
+    <canvas id="mc" role="img" aria-label="Casino zero-sum pyramid economic model chart">Casino economic model visualization</canvas>
+  </div>
+  <div class="leg" id="leg"></div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Zero-sum identity</div>
+  <div id="identity" style="font-size:13px;color:var(--text-secondary);line-height:1.8"></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let ci=null, view='pyramid';
+
+function fmt(v){
+  if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
+  if(Math.abs(v)>=1e3) return '$'+(v/1e3).toFixed(1)+'K';
+  return '$'+v.toFixed(0);
+}
+function pct(v){return (v*100).toFixed(1)+'%'}
+
+function setV(v,el){
+  view=v;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  update();
+}
+
+function gp(id){return +document.getElementById(id).value}
+
+function compute(){
+  const pool=gp('pool'), slotS=gp('slotShare')/100, slotE=gp('slotEdge'),
+        tableE=gp('tableEdge'), loanE=gp('loanEntry'), loanAPR=gp('loanAPR')/100,
+        loanF=gp('loanFrac'), nP=gp('players'), nW=gp('waves');
+
+  const tableS=1-slotS;
+  const slotPool=pool*slotS, tablePool=pool*tableS;
+  const slotExtract=slotPool*slotE;
+  const tableExtract=tablePool*tableE;
+  const tablePlayers=Math.round(nP*tableS);
+  const debtPlayers=Math.round(tablePlayers*loanF);
+  const debtExtract=debtPlayers*loanE*(loanAPR);
+  const totalExtract=slotExtract+tableExtract+debtExtract;
+  const avgLoss=totalExtract/nP;
+  const zeroSumRatio=totalExtract/pool;
+
+  return {pool,slotS,tableS,slotPool,tablePool,slotExtract,tableExtract,
+          loanE,loanAPR,loanF,nP,nW,tablePlayers,debtPlayers,debtExtract,
+          totalExtract,avgLoss,zeroSumRatio,slotE,tableE};
+}
+
+function buildWaves(p){
+  const waves=[];
+  let remainingPool=p.pool;
+  let debtBurden=0;
+  for(let w=1;w<=p.nW;w++){
+    const slotEx=remainingPool*p.slotS*p.slotE;
+    const tableEx=remainingPool*p.tableS*p.tableE;
+    const newDebt=Math.round(p.nP*p.tableS*p.loanF*(1+0.05*Math.min(w,10)));
+    debtBurden+=newDebt*p.loanE*(p.loanAPR/p.nW);
+    const totalEx=slotEx+tableEx+debtBurden/p.nW;
+    remainingPool=Math.max(0,remainingPool-totalEx+remainingPool*0.02);
+    waves.push({w,remainingPool:+remainingPool.toFixed(0),slotEx:+slotEx.toFixed(0),tableEx:+tableEx.toFixed(0),debtEx:+(debtBurden/p.nW).toFixed(0),total:+totalEx.toFixed(0)});
+  }
+  return waves;
+}
+
+function update(){
+  const p=compute(), waves=buildWaves(p);
+  const labels=Array.from({length:p.nW},(_,i)=>'Session '+(i+1));
+
+  document.getElementById('poolv').textContent=fmt(p.pool);
+  document.getElementById('slotSv').textContent=Math.round(p.slotS*100)+'%';
+  document.getElementById('slotEv').textContent=(p.slotE*100).toFixed(1)+'%';
+  document.getElementById('tableEv').textContent=(p.tableE*100).toFixed(1)+'%';
+  document.getElementById('loanEv').textContent='$'+Math.round(gp('loanEntry')/1000)+'K';
+  document.getElementById('loanAv').textContent=Math.round(p.loanAPR*100)+'%';
+  document.getElementById('loanFv').textContent=Math.round(p.loanF*100)+'%';
+  document.getElementById('playersv').textContent=p.nP;
+  document.getElementById('wavesv').textContent=p.nW;
+
+  document.getElementById('m1').textContent=fmt(p.slotExtract);
+  document.getElementById('m2').textContent=fmt(p.tableExtract);
+  document.getElementById('m3').textContent=fmt(p.debtExtract);
+  document.getElementById('m4').textContent=fmt(p.totalExtract);
+  document.getElementById('m5').textContent=fmt(p.avgLoss);
+  document.getElementById('m6').textContent=(p.slotExtract/p.totalExtract*100).toFixed(1)+'%';
+  document.getElementById('m7').textContent=p.debtPlayers.toLocaleString();
+  document.getElementById('m8').textContent=(p.zeroSumRatio*100).toFixed(2)+'%';
+
+  document.getElementById('identity').innerHTML=
+    `<b>Zero-sum identity:</b> ΣPlayer losses = House gain = ${fmt(p.totalExtract)}<br>`+
+    `Slot base extracts ${(p.slotExtract/p.totalExtract*100).toFixed(1)}% of total house take on ${Math.round(p.slotS*100)}% of pool volume — highest density extraction per dollar.<br>`+
+    `Table layer extracts ${(p.tableExtract/p.totalExtract*100).toFixed(1)}% at lower edge but enables the <b>debt superstructure</b> above it.<br>`+
+    `Debt layer (${p.debtPlayers.toLocaleString()} players × $${Math.round(p.loanE/1000)}K @ ${Math.round(p.loanAPR*100)}% APR) = ${fmt(p.debtExtract)} — pure interest extraction on currency as raw material.<br>`+
+    `<b>Labor is absent from this model</b>: no player effort generates new value. Every dollar won is a dollar lost by another player or reclaimed from the pool. Unlike equity, manufacturing, or even commodity markets, there is no production surplus — the pyramid only redistributes downward toward the house.`;
+
+  let datasets=[], legItems=[];
+
+  if(view==='pyramid'){
+    const layers=['Slot base','Table games','Debt layer'];
+    const vals=[p.slotExtract,p.tableExtract,p.debtExtract];
+    const colors=['#2a78d6','#1baf7a','#e34948'];
+    datasets=[{
+      label:'House extraction',data:vals,
+      backgroundColor:colors,borderWidth:0,borderRadius:4,
+    }];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{
+      type:'bar',
+      data:{labels:layers,datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        indexAxis:'y',
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)}}},
+        scales:{
+          x:{title:{display:true,text:'Extraction ($)'},ticks:{callback:v=>fmt(v)}},
+          y:{ticks:{font:{size:12}}}
+        }
+      }
+    });
+    legItems=layers.map((l,i)=>({color:colors[i],label:l+' — '+fmt(vals[i])}));
+
+  } else if(view==='depletion'){
+    const poolVals=waves.map(w=>w.remainingPool);
+    const slotVals=waves.map(w=>w.slotEx);
+    const tableVals=waves.map(w=>w.tableEx);
+    datasets=[
+      {label:'Remaining pool',data:poolVals,borderColor:'#2a78d6',borderWidth:2,pointRadius:0,tension:.4,fill:false,yAxisID:'y'},
+      {label:'Slot extraction/session',data:slotVals,borderColor:'#e34948',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+      {label:'Table extraction/session',data:tableVals,borderColor:'#1baf7a',borderWidth:1.5,borderDash:[2,2],pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+    ];
+    legItems=[
+      {color:'#2a78d6',label:'Remaining pool (solid)'},
+      {color:'#e34948',label:'Slot extraction/session (dashed)'},
+      {color:'#1baf7a',label:'Table extraction/session (dotted)'},
+    ];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{
+      type:'line',data:{labels,datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}},
+        scales:{y:{title:{display:true,text:'$'},ticks:{callback:v=>fmt(v)}},x:{ticks:{autoSkip:true,maxTicksLimit:10}}}
+      }
+    });
+
+  } else if(view==='debt'){
+    const cumDebt=[];let acc=0;
+    waves.forEach(w=>{acc+=w.debtEx;cumDebt.push(+acc.toFixed(0));});
+    const perPlayer=waves.map(w=>+(w.debtEx/Math.max(1,p.debtPlayers)).toFixed(2));
+    datasets=[
+      {label:'Cumulative debt extraction',data:cumDebt,borderColor:'#e34948',borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(227,73,72,0.08)',yAxisID:'y'},
+      {label:'Per debtor/session',data:perPlayer,borderColor:'#eda100',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,fill:false,yAxisID:'y2'},
+    ];
+    legItems=[
+      {color:'#e34948',label:'Cumulative debt extraction'},
+      {color:'#eda100',label:'Per-debtor cost/session (right)'},
+    ];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{
+      type:'line',data:{labels,datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}},
+        scales:{
+          y:{title:{display:true,text:'Cumulative ($)'},ticks:{callback:v=>fmt(v)}},
+          y2:{position:'right',title:{display:true,text:'Per debtor ($)'},grid:{drawOnChartArea:false},ticks:{callback:v=>fmt(v)}},
+          x:{ticks:{autoSkip:true,maxTicksLimit:10}}
+        }
+      }
+    });
+
+  } else {
+    const casinoPool=waves.map(w=>w.remainingPool);
+    const investPool=waves.map((_,i)=>{
+      const r=0.07;
+      return Math.round(p.pool*Math.pow(1+r,i+1));
+    });
+    const commodPool=waves.map((_,i)=>{
+      const r=0.03;
+      return Math.round(p.pool*Math.pow(1+r,i+1));
+    });
+    datasets=[
+      {label:'Casino pool (zero-sum)',data:casinoPool,borderColor:'#e34948',borderWidth:2,pointRadius:0,tension:.4,fill:false},
+      {label:'Equity market (plus-sum ~7%/yr)',data:investPool,borderColor:'#1baf7a',borderWidth:2,pointRadius:0,tension:.3,fill:false},
+      {label:'Commodity market (~3%/yr)',data:commodPool,borderColor:'#eda100',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,fill:false},
+    ];
+    legItems=[
+      {color:'#e34948',label:'Casino pool — zero-sum (shrinks)'},
+      {color:'#1baf7a',label:'Equity market — plus-sum (~7%/yr via labor+capital)'},
+      {color:'#eda100',label:'Commodity market (~3%/yr, partially plus-sum)'},
+    ];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{
+      type:'line',data:{labels,datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}},
+        scales:{y:{title:{display:true,text:'Pool value ($)'},ticks:{callback:v=>fmt(v)}},x:{ticks:{autoSkip:true,maxTicksLimit:10}}}
+      }
+    });
+  }
+
+  document.getElementById('leg').innerHTML=legItems.map(l=>
+    `<span style="display:flex;align-items:center;gap:4px"><span class="ldot" style="background:${l.color}"></span>${l.label}</span>`
+  ).join('');
+}
+
+document.querySelectorAll('input[type=range]').forEach(el=>el.addEventListener('input',update));
+update();
+</script>

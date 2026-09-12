@@ -1,0 +1,314 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{padding:1rem 0;font-family:var(--font-sans,system-ui)}
+.panel{background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.ctrl{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;color:var(--text-secondary)}
+.ctrl label{min-width:240px;flex-shrink:0}
+.ctrl input[type=range]{flex:1;min-width:0}
+.val{min-width:70px;text-align:right;font-weight:500;font-size:13px;color:var(--text-primary)}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
+.mc{background:var(--surface-1);border-radius:8px;padding:.75rem 1rem}
+.ml{font-size:11px;color:var(--text-muted);margin-bottom:3px}
+.mv{font-size:17px;font-weight:500;color:var(--text-primary)}
+.tabs{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.tab{padding:5px 13px;border-radius:20px;border:0.5px solid var(--border-strong);font-size:12px;cursor:pointer;background:transparent;color:var(--text-secondary)}
+.tab.on{background:var(--bg-accent);color:var(--text-accent);border-color:var(--border-accent)}
+.leg{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-secondary);margin-top:8px}
+.ld{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+.st{font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:8px}
+.note{font-size:12px;color:var(--text-secondary);line-height:1.8}
+.flow-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-bottom:1rem}
+.flow-cell{padding:10px 12px;border:0.5px solid var(--border);font-size:12px;color:var(--text-secondary)}
+.flow-cell.hdr{font-weight:500;color:var(--text-primary);background:var(--surface-1);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.flow-cell.top{color:var(--text-danger);font-weight:500}
+.flow-cell.mid{color:var(--text-warning);font-weight:500}
+.flow-cell.bot{color:var(--text-muted)}
+.arrow-row{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--text-muted);margin:2px 0}
+</style>
+
+<div class="w">
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Financial bubble casino pyramid model showing zero-sum extraction from retail base through debt layers to house extraction at top, across bubble phases</h2>
+
+<div class="panel">
+  <div class="st">Bubble architecture parameters</div>
+
+  <div class="ctrl"><label>Total retail capital entering pool ($B)</label>
+    <input type="range" id="pool" min="10" max="2000" step="10" value="500">
+    <span class="val" id="poolV">$500B</span></div>
+
+  <div class="ctrl"><label>Retail base share of pool (slot analog %)</label>
+    <input type="range" id="retailS" min="40" max="90" step="1" value="70">
+    <span class="val" id="retailSV">70%</span></div>
+
+  <div class="ctrl"><label>Hidden house edge — retail tier (information asymmetry)</label>
+    <input type="range" id="houseE" min="0.03" max="0.35" step="0.01" value="0.14">
+    <span class="val" id="houseEV">14%</span></div>
+
+  <div class="ctrl"><label>Mid-tier leverage ratio (margin / HELOC multiplier)</label>
+    <input type="range" id="leverage" min="1" max="20" step="0.5" value="5">
+    <span class="val" id="leverageV">5×</span></div>
+
+  <div class="ctrl"><label>Debt instrument spread (CDO/MBS origination take %)</label>
+    <input type="range" id="spread" min="0.005" max="0.08" step="0.005" value="0.025">
+    <span class="val" id="spreadV">2.5%</span></div>
+
+  <div class="ctrl"><label>% of mid-tier taking on leverage debt</label>
+    <input type="range" id="debtFrac" min="0.05" max="0.8" step="0.01" value="0.45">
+    <span class="val" id="debtFracV">45%</span></div>
+
+  <div class="ctrl"><label>Advertising / hype inflow rate (new retail per wave)</label>
+    <input type="range" id="hype" min="0.02" max="0.4" step="0.01" value="0.15">
+    <span class="val" id="hypeV">15%/wave</span></div>
+
+  <div class="ctrl"><label>House short position at peak (% of pool)</label>
+    <input type="range" id="shortPos" min="0.0" max="0.5" step="0.01" value="0.18">
+    <span class="val" id="shortPosV">18%</span></div>
+
+  <div class="ctrl"><label>Collapse trigger threshold (leverage × pool ratio)</label>
+    <input type="range" id="trigger" min="2" max="15" step="0.5" value="6">
+    <span class="val" id="triggerV">6×</span></div>
+
+  <div class="ctrl"><label>Bubble phases n (quarters)</label>
+    <input type="range" id="nQ" min="8" max="60" step="1" value="28">
+    <span class="val" id="nQV">28 qtrs</span></div>
+</div>
+
+<div class="g4">
+  <div class="mc"><div class="ml">Total house extraction</div><div class="mv" id="m1">—</div></div>
+  <div class="mc"><div class="ml">Retail base losses</div><div class="mv" id="m2">—</div></div>
+  <div class="mc"><div class="ml">Debt layer extraction</div><div class="mv" id="m3">—</div></div>
+  <div class="mc"><div class="ml">Collapse quarter</div><div class="mv" id="m4">—</div></div>
+</div>
+<div class="g4">
+  <div class="mc"><div class="ml">Avg retail loss</div><div class="mv" id="m5">—</div></div>
+  <div class="mc"><div class="ml">House short profit</div><div class="mv" id="m6">—</div></div>
+  <div class="mc"><div class="ml">Leveraged exposure</div><div class="mv" id="m7">—</div></div>
+  <div class="mc"><div class="ml">Zero-sum ratio</div><div class="mv" id="m8">—</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="sv('price',this)">Asset price and pool</button>
+  <button class="tab" onclick="sv('extract',this)">Extraction layers</button>
+  <button class="tab" onclick="sv('debt',this)">Debt cascade</button>
+  <button class="tab" onclick="sv('flow',this)">Money flow diagram</button>
+  <button class="tab" onclick="sv('compare',this)">Casino vs bubble</button>
+</div>
+
+<div class="panel" style="padding-bottom:.5rem">
+  <div id="flowDiag" style="display:none">
+    <div class="flow-grid" id="flowGrid"></div>
+  </div>
+  <div style="position:relative;width:100%;height:340px" id="chartWrap">
+    <canvas id="mc" role="img" aria-label="Financial bubble casino pyramid model showing price, extraction and debt cascade dynamics">Financial bubble model</canvas>
+  </div>
+  <div class="leg" id="leg"></div>
+</div>
+
+<div class="panel">
+  <div class="st">Zero-sum identity and structural isomorphism</div>
+  <div class="note" id="identity"></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let ci=null, curView='price';
+
+function g(id){return +document.getElementById(id).value}
+function fmt(v){
+  if(Math.abs(v)>=1e12)return '$'+(v/1e12).toFixed(2)+'T';
+  if(Math.abs(v)>=1e9)return '$'+(v/1e9).toFixed(1)+'B';
+  if(Math.abs(v)>=1e6)return '$'+(v/1e6).toFixed(1)+'M';
+  return '$'+Math.round(v).toLocaleString();
+}
+function sv(v,el){curView=v;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');update();}
+
+function computeBubble(){
+  const pool=g('pool')*1e9, retailS=g('retailS')/100, houseE=g('houseE'),
+        leverage=g('leverage'), spread=g('spread'), debtFrac=g('debtFrac'),
+        hype=g('hype'), shortPos=g('shortPos'), trigger=g('trigger'), nQ=g('nQ');
+
+  const price=[], retailPool=[], midPool=[], houseExtract=[], debtLoad=[], totalDebt=[];
+  const retailLoss=[], midLoss=[], debtExtract=[], shortProfit=[];
+  const phases=[];
+
+  let assetPrice=100, rPool=pool*retailS, mPool=pool*(1-retailS);
+  let cumDebt=0, collapseQ=null, peakPrice=100;
+  const midInvest=mPool*debtFrac*leverage;
+
+  for(let q=0;q<nQ;q++){
+    const isEarly=q<nQ*0.25, isMid=q>=nQ*0.25&&q<nQ*0.6, isLate=q>=nQ*0.6&&q<nQ*0.75, isCrash=q>=nQ*0.75;
+
+    let newRetail=rPool*hype*(isEarly?1.2:isMid?1.0:isLate?0.6:0);
+    rPool+=newRetail;
+
+    const leverageRatio=(cumDebt+midInvest)/Math.max(1,mPool);
+    let priceChange;
+    if(isEarly) priceChange=assetPrice*0.08*(1+hype*0.5);
+    else if(isMid) priceChange=assetPrice*0.05*(1+hype*0.3);
+    else if(isLate) priceChange=assetPrice*0.02;
+    else priceChange=-assetPrice*0.18*(1+leverageRatio/trigger);
+
+    if(!isCrash) peakPrice=Math.max(peakPrice,assetPrice+priceChange);
+    assetPrice=Math.max(5,assetPrice+priceChange);
+
+    const rLoss=rPool*houseE*(isCrash?2.5:1)*(isMid||isLate?1.2:1);
+    const dEx=cumDebt*spread+(isCrash?cumDebt*0.08:0);
+    const mLoss=isCrash?mPool*0.35:mPool*0.02;
+    const shortP=isCrash?pool*shortPos*(peakPrice-assetPrice)/peakPrice*0.8:0;
+    const hEx=rLoss+dEx+(isCrash?shortP*0.3:0);
+
+    const newDebt=isMid?mPool*debtFrac*leverage*0.15:isLate?mPool*debtFrac*leverage*0.08:0;
+    cumDebt+=newDebt;
+
+    if(isCrash&&!collapseQ) collapseQ=q+1;
+
+    price.push(+assetPrice.toFixed(2));
+    retailPool.push(+(rPool/1e9).toFixed(3));
+    midPool.push(+(mPool/1e9).toFixed(3));
+    houseExtract.push(+(hEx/1e9).toFixed(3));
+    debtLoad.push(+(cumDebt/1e9).toFixed(3));
+    retailLoss.push(+(rLoss/1e9).toFixed(3));
+    midLoss.push(+(mLoss/1e9).toFixed(3));
+    debtExtract.push(+(dEx/1e9).toFixed(3));
+    shortProfit.push(+(shortP/1e9).toFixed(3));
+    phases.push(isEarly?'Accumulation':isMid?'Euphoria':isLate?'Distribution':isCrash?'Collapse':'?');
+
+    rPool=Math.max(0,rPool-rLoss);
+    mPool=Math.max(0,mPool-mLoss);
+  }
+
+  const totHouse=houseExtract.reduce((a,b)=>a+b,0)*1e9;
+  const totRetail=retailLoss.reduce((a,b)=>a+b,0)*1e9;
+  const totDebt=debtExtract.reduce((a,b)=>a+b,0)*1e9;
+  const totShort=shortProfit.reduce((a,b)=>a+b,0)*1e9;
+  const nRetail=Math.round(pool*retailS/50000);
+  const maxLev=debtLoad.length>0?Math.max(...debtLoad)*1e9:0;
+
+  return {price,retailPool,midPool,houseExtract,debtLoad,retailLoss,midLoss,debtExtract,shortProfit,phases,
+    totHouse,totRetail,totDebt,totShort,collapseQ,nRetail,maxLev,pool,retailS,peakPrice,nQ};
+}
+
+function update(){
+  const pool=g('pool'), nQ=g('nQ');
+  document.getElementById('poolV').textContent='$'+pool+'B';
+  document.getElementById('retailSV').textContent=Math.round(g('retailS'))+'%';
+  document.getElementById('houseEV').textContent=(g('houseE')*100).toFixed(0)+'%';
+  document.getElementById('leverageV').textContent=g('leverage').toFixed(1)+'×';
+  document.getElementById('spreadV').textContent=(g('spread')*100).toFixed(1)+'%';
+  document.getElementById('debtFracV').textContent=Math.round(g('debtFrac')*100)+'%';
+  document.getElementById('hypeV').textContent=Math.round(g('hype')*100)+'%/wave';
+  document.getElementById('shortPosV').textContent=Math.round(g('shortPos')*100)+'%';
+  document.getElementById('triggerV').textContent=g('trigger').toFixed(1)+'×';
+  document.getElementById('nQV').textContent=nQ+' qtrs';
+
+  const m=computeBubble();
+  const labels=Array.from({length:m.nQ},(_,i)=>'Q'+(i+1));
+
+  document.getElementById('m1').textContent=fmt(m.totHouse);
+  document.getElementById('m2').textContent=fmt(m.totRetail);
+  document.getElementById('m3').textContent=fmt(m.totDebt);
+  document.getElementById('m4').textContent=m.collapseQ?'Q'+m.collapseQ:'No collapse';
+  document.getElementById('m5').textContent=m.nRetail>0?fmt(m.totRetail/m.nRetail):'-';
+  document.getElementById('m6').textContent=fmt(m.totShort);
+  document.getElementById('m7').textContent=fmt(m.maxLev);
+  document.getElementById('m8').textContent=((m.totHouse/(m.pool*1e9))*100).toFixed(1)+'%';
+
+  document.getElementById('identity').innerHTML=
+    '<b>Zero-sum identity:</b> Σ(retail losses + mid-tier losses + debt interest) ≡ House extraction + Short profit<br>'+
+    'No new value is created. The "profitable venture" framing in advertising is structurally identical to the casino\'s RTP display — it shows the winning case, not the expected value.<br><br>'+
+    '<b>Hidden edge:</b> Unlike a casino where house edge h is disclosed (even if buried), in a financial bubble h is set retroactively — underwriters short the instruments they sold, originators collect fees regardless of outcome, servicers earn on delinquency. The edge is discovered only after collapse.<br><br>'+
+    '<b>Debt as raw material:</b> Home equity, retirement savings, and margin accounts are the "currency as raw material" — high-entry-cost inputs that fund the mid-tier\'s participation in an already-priced-against game. The CDO/MBS tranche structure is precisely the table-game debt gateway: higher apparent legitimacy, higher entry cost, same zero-sum outcome for the base.<br><br>'+
+    '<b>Labor absent here too:</b> Unlike equity in a productive firm, bubble assets generate no new output. A rising asset price is a transfer, not production — every dollar of paper gain is a claim on someone else\'s future loss.';
+
+  document.getElementById('flowDiag').style.display='none';
+  document.getElementById('chartWrap').style.display='';
+
+  if(curView==='flow'){
+    document.getElementById('flowDiag').style.display='';
+    document.getElementById('chartWrap').style.display='none';
+    document.getElementById('leg').innerHTML='';
+    const grid=document.getElementById('flowGrid');
+    const rows=[
+      ['Layer','Casino analog','Bubble analog'],
+      ['House / top','Fixed edge, always wins','Underwriters, short-sellers, servicers'],
+      ['↑ extraction flows up','↑','↑'],
+      ['Debt layer','Predatory casino loans','CDOs, MBS, margin calls, HELOC'],
+      ['↑ interest drains up','↑','↑'],
+      ['Mid-tier','Table players, high entry','Leveraged retail, accredited investors'],
+      ['↑ losses flow up','↑','↑'],
+      ['Retail base','Slots — mass volume, worst odds','Subprime, meme stocks, crypto retail'],
+      ['↑ advertising influx','↑ hype inflow','↑ CNBC, influencer, ratings pump'],
+      ['Entry pool','Cash brought to casino','Savings, equity, borrowed capital'],
+    ];
+    grid.innerHTML='';
+    grid.style.gridTemplateColumns='1fr 1fr 1fr';
+    rows.forEach((r,ri)=>{
+      r.forEach((cell,ci2)=>{
+        const d=document.createElement('div');
+        d.className='flow-cell'+(ri===0?' hdr':ri===1?' top':ri===3?' top':ri===5?' mid':ri===7?' bot':'');
+        d.textContent=cell;
+        grid.appendChild(d);
+      });
+    });
+    return;
+  }
+
+  let datasets=[], legItems=[];
+  const C={retail:'#2a78d6',mid:'#eda100',house:'#e34948',debt:'#4a3aa7',price:'#1baf7a',short:'#e87ba4'};
+
+  if(curView==='price'){
+    const bgColors=m.phases.map(ph=>ph==='Accumulation'?'rgba(27,175,122,0.13)':ph==='Euphoria'?'rgba(42,120,214,0.10)':ph==='Distribution'?'rgba(237,161,0,0.12)':'rgba(227,73,72,0.13)');
+    datasets=[
+      {label:'Asset price (index)',data:m.price,borderColor:C.price,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(27,175,122,0.07)',yAxisID:'y'},
+      {label:'Retail pool ($B)',data:m.retailPool,borderColor:C.retail,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false,yAxisID:'y2'},
+      {label:'Debt load ($B)',data:m.debtLoad,borderColor:C.debt,borderWidth:1.5,borderDash:[2,2],pointRadius:0,tension:.4,fill:false,yAxisID:'y2'},
+    ];
+    legItems=[{c:C.price,l:'Asset price'},{c:C.retail,l:'Retail pool ($B, right)'},{c:C.debt,l:'Debt load ($B, right)'}];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Q'+(c[0].dataIndex+1)+' · '+m.phases[c[0].dataIndex],label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)}}},scales:{x:{ticks:{autoSkip:true,maxTicksLimit:14,font:{size:10}}},y:{title:{display:true,text:'Price index',font:{size:11}}},y2:{position:'right',title:{display:true,text:'$B',font:{size:11}},grid:{drawOnChartArea:false}}},animation:{duration:250}}});
+
+  } else if(curView==='extract'){
+    datasets=[
+      {label:'Retail base losses/qtr',data:m.retailLoss,borderColor:C.retail,borderWidth:2,pointRadius:0,tension:.3,fill:true,backgroundColor:'rgba(42,120,214,0.07)'},
+      {label:'Mid-tier losses/qtr',data:m.midLoss,borderColor:C.mid,borderWidth:2,pointRadius:0,tension:.3,fill:false},
+      {label:'Debt extraction/qtr',data:m.debtExtract,borderColor:C.debt,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,fill:false},
+      {label:'Short profit/qtr',data:m.shortProfit,borderColor:C.short,borderWidth:1.5,borderDash:[2,2],pointRadius:0,tension:.3,fill:false},
+    ];
+    legItems=[{c:C.retail,l:'Retail losses'},{c:C.mid,l:'Mid-tier losses'},{c:C.debt,l:'Debt extraction'},{c:C.short,l:'House short profit'}];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Q'+(c[0].dataIndex+1)+' · '+m.phases[c[0].dataIndex],label:c=>c.dataset.label+': $'+c.parsed.y.toFixed(2)+'B'}}},scales:{x:{ticks:{autoSkip:true,maxTicksLimit:14,font:{size:10}}},y:{title:{display:true,text:'$B extracted per quarter',font:{size:11}}}},animation:{duration:250}}});
+
+  } else if(curView==='debt'){
+    const cumRetail=[];let acc=0;
+    m.retailLoss.forEach(v=>{acc+=v;cumRetail.push(+acc.toFixed(3));});
+    const cumDebtEx=[];acc=0;
+    m.debtExtract.forEach(v=>{acc+=v;cumDebtEx.push(+acc.toFixed(3));});
+    datasets=[
+      {label:'Cumulative retail losses',data:cumRetail,borderColor:C.retail,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(42,120,214,0.07)'},
+      {label:'Debt load outstanding',data:m.debtLoad,borderColor:C.debt,borderWidth:2,pointRadius:0,tension:.4,fill:false},
+      {label:'Cumulative debt extraction',data:cumDebtEx,borderColor:C.house,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+    ];
+    legItems=[{c:C.retail,l:'Cumulative retail losses'},{c:C.debt,l:'Debt outstanding'},{c:C.house,l:'Cumulative debt extraction'}];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Q'+(c[0].dataIndex+1)+' · '+m.phases[c[0].dataIndex],label:c=>c.dataset.label+': $'+c.parsed.y.toFixed(2)+'B'}}},scales:{x:{ticks:{autoSkip:true,maxTicksLimit:14,font:{size:10}}},y:{title:{display:true,text:'$B (cumulative)',font:{size:11}}}},animation:{duration:250}}});
+
+  } else if(curView==='compare'){
+    const casinoEdge=g('houseE');
+    const edges=[0.005,0.015,0.025,0.05,0.075,0.1,0.14,0.2,0.35];
+    const edgeLabels=['Blackjack 0.5%','Baccarat 1.5%','Roulette 2.5%','Slots low 5%','Slots avg 7.5%','Slots high 10%','Bubble retail 14%','Bubble crash 20%','Bubble panic 35%'];
+    const colors=edges.map(e=>e<=0.025?'#1baf7a':e<=0.1?'#eda100':'#e34948');
+    datasets=[{label:'Expected loss per $100 wagered',data:edges.map(e=>+(e*100).toFixed(2)),backgroundColor:colors,borderWidth:0,borderRadius:4}];
+    legItems=[{c:'#1baf7a',l:'Casino table games (disclosed)'},{c:'#eda100',l:'Slots / low-tier (disclosed)'},{c:'#e34948',l:'Bubble retail (hidden edge)'}];
+    if(ci) ci.destroy();
+    ci=new Chart(document.getElementById('mc'),{type:'bar',data:{labels:edgeLabels,datasets},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Expected loss: $'+c.parsed.x.toFixed(2)+' per $100'}}},scales:{x:{title:{display:true,text:'Expected loss per $100 wagered',font:{size:11}},ticks:{callback:v=>v+'%'}},y:{ticks:{font:{size:11}}}},animation:{duration:250}}});
+  }
+
+  document.getElementById('leg').innerHTML=legItems.map(l=>`<span style="display:flex;align-items:center;gap:4px"><span class="ld" style="background:${l.c}"></span>${l.l}</span>`).join('');
+}
+
+document.querySelectorAll('input[type=range]').forEach(el=>el.addEventListener('input',update));
+update();
+</script>

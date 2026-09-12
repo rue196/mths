@@ -1,0 +1,298 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{padding:1rem 0;font-family:var(--font-sans,system-ui)}
+.panel{background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.ctrl{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;color:var(--text-secondary)}
+.ctrl label{min-width:230px;flex-shrink:0}
+.ctrl input[type=range]{flex:1;min-width:0}
+.val{min-width:64px;text-align:right;font-weight:500;font-size:13px;color:var(--text-primary)}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
+.mc{background:var(--surface-1);border-radius:8px;padding:.75rem 1rem}
+.ml{font-size:11px;color:var(--text-muted);margin-bottom:3px}
+.mv{font-size:17px;font-weight:500;color:var(--text-primary)}
+.tabs{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.tab{padding:5px 13px;border-radius:20px;border:0.5px solid var(--border-strong);font-size:12px;cursor:pointer;background:transparent;color:var(--text-secondary)}
+.tab.on{background:var(--bg-accent);color:var(--text-accent);border-color:var(--border-accent)}
+.leg{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-secondary);margin-top:8px}
+.ld{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+.st{font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:8px}
+.note{font-size:12px;color:var(--text-secondary);line-height:1.7}
+.phase-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pb{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:500}
+</style>
+
+<div class="w">
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Binomial plus-sum growth myth model showing raw material access, labor pool, GDP trajectory, and the myth of endless growth across wave-decade periods</h2>
+
+<div class="panel">
+  <div class="st">Resource and growth parameters</div>
+
+  <div class="ctrl"><label>Resource access peak (Haber-Bosch moment, wave)</label>
+    <input type="range" id="rPeak" min="1" max="8" step="1" value="3">
+    <span class="val" id="rPeakV">W3 (~1910s)</span></div>
+
+  <div class="ctrl"><label>Resource extraction failure p (scarcity friction)</label>
+    <input type="range" id="pFail" min="0.05" max="0.8" step="0.01" value="0.35">
+    <span class="val" id="pFailV">0.35</span></div>
+
+  <div class="ctrl"><label>Resource dispersal rate λ (depletion / substitution)</label>
+    <input type="range" id="rDecay" min="0.01" max="0.15" step="0.005" value="0.055">
+    <span class="val" id="rDecayV">0.055</span></div>
+
+  <div class="ctrl"><label>Labor plus-sum coefficient α (productivity per worker)</label>
+    <input type="range" id="alpha" min="0.5" max="3.0" step="0.1" value="1.4">
+    <span class="val" id="alphaV">1.40</span></div>
+
+  <div class="ctrl"><label>Post-industrial labor shift β (service / automation drag)</label>
+    <input type="range" id="beta" min="0.1" max="1.0" step="0.05" value="0.45">
+    <span class="val" id="betaV">0.45</span></div>
+
+  <div class="ctrl"><label>Population birth dependence on GDP γ</label>
+    <input type="range" id="gamma" min="0.0" max="1.0" step="0.05" value="0.55">
+    <span class="val" id="gammaV">0.55</span></div>
+
+  <div class="ctrl"><label>GDP carrying capacity K∞ (processing ceiling)</label>
+    <input type="range" id="kInf" min="50" max="500" step="10" value="200">
+    <span class="val" id="kInfV">200 (index)</span></div>
+
+  <div class="ctrl"><label>Capital accumulation rate ρ</label>
+    <input type="range" id="rho" min="0.01" max="0.1" step="0.005" value="0.04">
+    <span class="val" id="rhoV">0.040</span></div>
+
+  <div class="ctrl"><label>Automation displacement rate δ (myth fuel)</label>
+    <input type="range" id="delta" min="0.0" max="0.15" step="0.005" value="0.045">
+    <span class="val" id="deltaV">0.045</span></div>
+
+  <div class="ctrl"><label>Total waves n (decades from 1800)</label>
+    <input type="range" id="nW" min="10" max="30" step="1" value="22">
+    <span class="val" id="nWV">2020</span></div>
+</div>
+
+<div class="g4">
+  <div class="mc"><div class="ml">Peak GDP index</div><div class="mv" id="m1">—</div></div>
+  <div class="mc"><div class="ml">Peak resource wave</div><div class="mv" id="m2">—</div></div>
+  <div class="mc"><div class="ml">Labor plateau wave</div><div class="mv" id="m3">—</div></div>
+  <div class="mc"><div class="ml">Myth gap at end</div><div class="mv" id="m4">—</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="sv('gdp',this)">GDP and stocks</button>
+  <button class="tab" onclick="sv('resource',this)">Resource curve</button>
+  <button class="tab" onclick="sv('labor',this)">Labor dynamics</button>
+  <button class="tab" onclick="sv('myth',this)">Growth myth gap</button>
+  <button class="tab" onclick="sv('decomp',this)">Growth decomposition</button>
+</div>
+
+<div class="panel" style="padding-bottom:.5rem">
+  <div style="position:relative;width:100%;height:340px">
+    <canvas id="mc" role="img" aria-label="Binomial plus-sum growth myth model chart showing GDP, resource, labor and myth dynamics across wave decades">Model output</canvas>
+  </div>
+  <div class="leg" id="leg"></div>
+</div>
+
+<div class="panel">
+  <div class="st">Wave-decade phase classification</div>
+  <div class="phase-row" id="phases"></div>
+  <div class="note" id="eqnote" style="margin-top:12px"></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let ci=null, view='gdp';
+
+const COLORS={gdp:'#2a78d6',res:'#1baf7a',lab:'#eda100',myth:'#e34948',cap:'#4a3aa7',naive:'#888780',decomR:'#1baf7a',decomL:'#eda100',decomC:'#4a3aa7',decomA:'#e34948'};
+
+function g(id){return +document.getElementById(id).value}
+function sv(v,el){view=v;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');update();}
+
+function computeModel(){
+  const rPeak=g('rPeak'), pFail=g('pFail'), rDecay=g('rDecay'),
+        alpha=g('alpha'), beta=g('beta'), gamma=g('gamma'),
+        kInf=g('kInf'), rho=g('rho'), delta=g('delta'), nW=g('nW');
+
+  const years=[], R=[], L=[], GDP=[], CAP=[], MYTH=[], NAIVE=[];
+  const dR=[], dL=[], dGDP_R=[], dGDP_L=[], dGDP_C=[], dGDP_A=[];
+  const phases=[];
+
+  let r0=0.2, l0=1.0, gdp0=10, cap0=5;
+
+  for(let w=0;w<nW;w++){
+    years.push(1800+w*10);
+    const yr=1800+w*10;
+
+    const pAdj=Math.max(0.02, pFail*Math.pow(0.9,w));
+    let resource;
+    if(w<rPeak){
+      resource=r0*Math.pow(1-pAdj,-w)*0.5;
+      resource=Math.min(resource,1.0);
+    } else {
+      const t=w-rPeak;
+      const pBase=1.0*(1-pFail*0.3);
+      resource=pBase*Math.exp(-rDecay*t);
+      resource=Math.max(0.05,resource);
+    }
+
+    const laborGrowthBase=0.025;
+    const gdpFeedback=gamma*(Math.max(0,gdp0)/kInf)*0.3;
+    const demogFatigue=w>12?Math.exp(-0.04*(w-12)):1.0;
+    const laborGrowth=(laborGrowthBase+gdpFeedback)*demogFatigue;
+    const labor=l0*(1+laborGrowth);
+    const laborProductivity=alpha*(1-beta*Math.min(1,(w/nW)));
+    const automationDrag=delta*Math.min(1,(w/nW)*1.5);
+
+    const gContribR=gdp0*resource*0.25;
+    const gContribL=gdp0*(labor/l0-1)*laborProductivity;
+    const gContribC=cap0*rho;
+    const gContribA=-gdp0*automationDrag*(w>8?1:0);
+    const dGDP=gContribR+gContribL+gContribC+gContribA;
+    const logisticDamp=1-(gdp0/kInf);
+    const gdp=gdp0+dGDP*Math.max(0.01,logisticDamp);
+    const newCap=cap0*(1+rho*0.5)+gdp0*0.1;
+
+    const naiveGDP=gdp0*(1+0.035);
+
+    R.push(+resource.toFixed(4));
+    L.push(+labor.toFixed(4));
+    GDP.push(+gdp.toFixed(3));
+    CAP.push(+newCap.toFixed(3));
+    NAIVE.push(+naiveGDP.toFixed(3));
+    MYTH.push(+(naiveGDP-gdp).toFixed(3));
+    dR.push(+gContribR.toFixed(3));
+    dL.push(+gContribL.toFixed(3));
+    dGDP_C.push(+gContribC.toFixed(3));
+    dGDP_A.push(+gContribA.toFixed(3));
+
+    const phase=w<rPeak?'Haber-Bosch surge':w<rPeak+4?'Peak resource / boom':w<15?'Labor transition':w<20?'Automation plateau':'Post-growth';
+    phases.push(phase);
+
+    r0=resource; l0=labor; gdp0=Math.max(gdp0,gdp); cap0=newCap;
+  }
+
+  return {years,R,L,GDP,CAP,MYTH,NAIVE,dR,dL,dGDP_C,dGDP_A,phases,nW};
+}
+
+function update(){
+  const nW=g('nW'), rPeak=g('rPeak');
+  document.getElementById('rPeakV').textContent='W'+(rPeak+1)+' (~'+(1800+rPeak*10)+'s)';
+  document.getElementById('pFailV').textContent=g('pFail').toFixed(2);
+  document.getElementById('rDecayV').textContent=g('rDecay').toFixed(3);
+  document.getElementById('alphaV').textContent=g('alpha').toFixed(2);
+  document.getElementById('betaV').textContent=g('beta').toFixed(2);
+  document.getElementById('gammaV').textContent=g('gamma').toFixed(2);
+  document.getElementById('kInfV').textContent=g('kInf')+' (index)';
+  document.getElementById('rhoV').textContent=g('rho').toFixed(3);
+  document.getElementById('deltaV').textContent=g('delta').toFixed(3);
+  document.getElementById('nWV').textContent=(1800+nW*10).toString();
+
+  const m=computeModel();
+  const labels=m.years.map(y=>y.toString());
+  const peakGDP=Math.max(...m.GDP);
+  const peakGDPW=m.GDP.indexOf(peakGDP);
+  const laborFlat=m.L.reduce((best,v,i)=>Math.abs(v-m.L[Math.max(0,i-1)])<0.002?i:best,0);
+  const mythEnd=m.MYTH[m.MYTH.length-1];
+
+  document.getElementById('m1').textContent=peakGDP.toFixed(1);
+  document.getElementById('m2').textContent='W'+(rPeak+1)+' ('+(1800+rPeak*10)+')';
+  document.getElementById('m3').textContent='W'+(laborFlat+1)+' ('+(1800+laborFlat*10)+')';
+  document.getElementById('m4').textContent=(mythEnd>0?'+':'')+mythEnd.toFixed(1);
+
+  const phEl=document.getElementById('phases');
+  phEl.innerHTML='';
+  const phColors={'Haber-Bosch surge':'#1baf7a','Peak resource / boom':'#2a78d6','Labor transition':'#eda100','Automation plateau':'#4a3aa7','Post-growth':'#e34948'};
+  const phSeen={};
+  m.phases.forEach((ph,i)=>{
+    if(!phSeen[ph]){
+      phSeen[ph]=true;
+      const b=document.createElement('span');
+      b.className='pb';
+      b.style.background=phColors[ph]+'22';b.style.color=phColors[ph];b.style.border='0.5px solid '+phColors[ph]+'55';
+      b.textContent=ph+' (W'+(i+1)+', '+(1800+i*10)+'s)';
+      phEl.appendChild(b);
+    }
+  });
+
+  document.getElementById('eqnote').innerHTML=
+    '<b>Core identity:</b> G(t) = G(t-1) + [α·ΔL(t)·(1−β·t/T) − δ·G(t-1)·t/T + ρ·K(t) + R(t)·G(t-1)·0.25]·(1 − G/K∞)<br>'+
+    'where R(t) follows binomial scarcity then inverse-exp decay post-peak; L(t) is logistic with GDP-feedback birth rate γ; K(t) accumulates at rate ρ; δ is automation displacement (myth fuel: labor exits manufacturing, GDP growth persists, birth rates fall, resource dependency sharpens).<br>'+
+    '<b>Myth gap M(t)</b> = G_naive(t) − G(t), where G_naive extrapolates the recent trend linearly — the structural illusion of endless growth.';
+
+  let datasets=[], legItems=[];
+
+  if(view==='gdp'){
+    datasets=[
+      {label:'GDP index',data:m.GDP,borderColor:COLORS.gdp,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(42,120,214,0.06)',segment:{borderColor:ctx=>{const ph=m.phases[ctx.p1DataIndex];return ph==='Haber-Bosch surge'?COLORS.res:ph==='Peak resource / boom'?COLORS.gdp:ph==='Labor transition'?COLORS.lab:ph==='Automation plateau'?COLORS.cap:COLORS.myth;}}},
+      {label:'Capital stock',data:m.CAP,borderColor:COLORS.cap,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+      {label:'Labor (indexed)',data:m.L.map(v=>v*30),borderColor:COLORS.lab,borderWidth:1.5,borderDash:[2,2],pointRadius:0,tension:.4,fill:false},
+      {label:'Naive trend (myth)',data:m.NAIVE,borderColor:COLORS.naive,borderWidth:1,borderDash:[1,3],pointRadius:0,tension:.3,fill:false},
+    ];
+    legItems=[
+      {c:COLORS.gdp,l:'GDP (phase-colored)'},{c:COLORS.cap,l:'Capital stock'},{c:COLORS.lab,l:'Labor ×30'},{c:COLORS.naive,l:'Naive extrapolation (myth)'}
+    ];
+
+  } else if(view==='resource'){
+    datasets=[
+      {label:'Resource access R(t)',data:m.R,borderColor:COLORS.res,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(27,175,122,0.08)'},
+    ];
+    const peak=[...m.R];
+    const pv=Math.max(...peak), pi=peak.indexOf(pv);
+    datasets.push({label:'Peak marker',data:m.R.map((_,i)=>i===pi?pv:null),borderColor:COLORS.myth,borderWidth:0,pointRadius:m.R.map((_,i)=>i===pi?7:0),pointBackgroundColor:COLORS.myth,showLine:false});
+    legItems=[{c:COLORS.res,l:'Resource access R(t)'},{c:COLORS.myth,l:'Peak (Haber-Bosch moment)'}];
+
+  } else if(view==='labor'){
+    const lNorm=m.L.map(v=>v/m.L[0]*100);
+    datasets=[
+      {label:'Labor pool L(t)',data:lNorm,borderColor:COLORS.lab,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(237,161,0,0.07)'},
+      {label:'GDP per worker',data:m.GDP.map((g,i)=>+(g/m.L[i]).toFixed(3)),borderColor:COLORS.gdp,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+    ];
+    legItems=[{c:COLORS.lab,l:'Labor pool (indexed=100)'},{c:COLORS.gdp,l:'GDP per worker'}];
+
+  } else if(view==='myth'){
+    const mythPos=m.MYTH.map(v=>Math.max(0,v));
+    const mythNeg=m.MYTH.map(v=>Math.min(0,v));
+    datasets=[
+      {label:'Myth gap (naive − actual)',data:m.MYTH,borderColor:COLORS.myth,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(227,73,72,0.08)'},
+      {label:'Zero line',data:m.MYTH.map(()=>0),borderColor:'#888780',borderWidth:1,borderDash:[2,2],pointRadius:0,fill:false},
+    ];
+    legItems=[{c:COLORS.myth,l:'Myth gap M(t) = naive trend − actual GDP'},{c:'#888780',l:'Zero: no illusion'}];
+
+  } else {
+    datasets=[
+      {label:'Resource contribution ΔG_R',data:m.dR,borderColor:COLORS.decomR,borderWidth:2,pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(27,175,122,0.08)'},
+      {label:'Labor contribution ΔG_L',data:m.dL,borderColor:COLORS.decomL,borderWidth:2,pointRadius:0,tension:.4,fill:false},
+      {label:'Capital contribution ΔG_K',data:m.dGDP_C,borderColor:COLORS.decomC,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.4,fill:false},
+      {label:'Automation drag −ΔG_A',data:m.dGDP_A,borderColor:COLORS.decomA,borderWidth:1.5,borderDash:[2,2],pointRadius:0,tension:.4,fill:false},
+    ];
+    legItems=[
+      {c:COLORS.decomR,l:'Resource ΔG_R'},{c:COLORS.decomL,l:'Labor ΔG_L'},{c:COLORS.decomC,l:'Capital ΔG_K'},{c:COLORS.decomA,l:'Automation drag −ΔG_A'}
+    ];
+  }
+
+  document.getElementById('leg').innerHTML=legItems.map(l=>`<span style="display:flex;align-items:center;gap:4px"><span class="ld" style="background:${l.c}"></span>${l.l}</span>`).join('');
+
+  const yLab=view==='resource'?'Resource access (0–1)':view==='myth'?'Myth gap (GDP units)':view==='labor'?'Index / ratio':'GDP index';
+
+  if(ci) ci.destroy();
+  ci=new Chart(document.getElementById('mc'),{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>{const yr=c[0].label;const w=Math.round((+yr-1800)/10)+1;return yr+' · W'+w;},
+        label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)
+      }}},
+      scales:{
+        x:{title:{display:true,text:'Year (decade waves)',font:{size:11}},ticks:{autoSkip:true,maxTicksLimit:12,font:{size:10}}},
+        y:{title:{display:true,text:yLab,font:{size:11}},ticks:{font:{size:10}}}
+      },
+      animation:{duration:250}
+    }
+  });
+}
+
+document.querySelectorAll('input[type=range]').forEach(el=>el.addEventListener('input',update));
+update();
+</script>
