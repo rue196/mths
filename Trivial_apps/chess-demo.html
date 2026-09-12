@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Solver: Greedy vs Minimax (Entropy‑Aware)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e2b3c; color: #eee; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        h1 { margin: 10px 0; font-weight: 300; letter-spacing: 1px; }
+        .container { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; }
+        .board-wrapper { background: #2d3f4f; padding: 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
+        .board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border: 2px solid #4a5c6e; }
+        .square { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; cursor: pointer; transition: 0.1s; user-select: none; }
+        .square.light { background: #e8e0d0; }
+        .square.dark { background: #b08d6b; }
+        .square.selected { outline: 4px solid #ffcc00; outline-offset: -4px; }
+        .square.legal { background: rgba(0,255,0,0.3) !important; }
+        .square .piece { text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
+        .controls { margin: 15px 0; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .controls button { padding: 10px 24px; background: #4a6a8a; border: none; border-radius: 8px; color: white; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .controls button:hover { background: #5f7fa0; }
+        .info-panel { background: #2d3f4f; padding: 15px 25px; border-radius: 12px; min-width: 200px; text-align: center; }
+        .info-panel h3 { margin: 0 0 8px 0; font-weight: 300; color: #aac; }
+        .info-panel .score { font-size: 24px; font-weight: 600; }
+        .info-panel .entropy { font-size: 18px; color: #aab; }
+        .status { margin-top: 15px; padding: 10px 20px; background: #1f3344; border-radius: 8px; text-align: center; font-size: 16px; min-height: 40px; }
+        .legend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 10px 0; }
+        .legend-item { background: #2d3f4f; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
+        .legend-item span { font-weight: bold; }
+        @media (max-width: 700px) { .board { grid-template-columns: repeat(8, 48px); grid-template-rows: repeat(8, 48px); } .square { width: 48px; height: 48px; font-size: 26px; } }
+    </style>
+</head>
+<body>
+
+<h1>♚ Chess Solver: Greedy vs Minimax (Entropy‑Aware)</h1>
+<div class="legend">
+    <div class="legend-item"><span>P</span> 0.1</div>
+    <div class="legend-item"><span>N</span> 0.3</div>
+    <div class="legend-item"><span>B</span> 0.4</div>
+    <div class="legend-item"><span>R</span> 0.5</div>
+    <div class="legend-item"><span>Q</span> 1.0</div>
+    <div class="legend-item"><span>K</span> 0.9</div>
+    <div class="legend-item" style="background:#3a5a6a;">Entropy = TSP tour length</div>
+</div>
+
+<div class="container">
+    <div class="board-wrapper">
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button id="greedyBtn">♜ Greedy (risk‑averse)</button>
+            <button id="minimaxBtn">♛ Minimax (least entropy)</button>
+            <button id="resetBtn">⟲ Reset</button>
+        </div>
+        <div class="status" id="status">Click a piece to see moves, then press Greedy or Minimax</div>
+    </div>
+    <div class="info-panel">
+        <h3>Current Score</h3>
+        <div class="score" id="scoreDisplay">0.00</div>
+        <h3>Entropy (TSP length)</h3>
+        <div class="entropy" id="entropyDisplay">0.00</div>
+        <hr style="border-color:#4a5c6e;">
+        <div style="font-size:14px; color:#aac; margin-top:8px;">
+            <div>Greedy: immediate best move</div>
+            <div>Minimax (depth 2): chooses move that minimises opponent's future entropy</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- Constants ----------
+    const PI = Math.PI;
+    const E = Math.E;
+    const ALPHA = 1.0 / (PI - E);   // ≈ 2.362
+
+    // Piece weights (scalars)
+    const WEIGHTS = {
+        'P': 0.1, 'N': 0.3, 'B': 0.4, 'R': 0.5, 'Q': 1.0, 'K': 0.9,
+        'p': 0.1, 'n': 0.3, 'b': 0.4, 'r': 0.5, 'q': 1.0, 'k': 0.9
+    };
+
+    // Unicode piece symbols
+    const SYMBOLS = {
+        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
+    };
+
+    // ---------- Board representation ----------
+    let board = [];
+    let turn = 'white';  // 'white' or 'black'
+    let selected = null; // {row, col}
+    let legalMoves = []; // [{row, col}]
+    let moveHistory = [];
+
+    // Initialise standard chess position (only pieces, no castling/en passant)
+    function initBoard() {
+        const backRank = ['R','N','B','Q','K','B','N','R'];
+        board = Array(8).fill().map(() => Array(8).fill(null));
+        for (let c = 0; c < 8; c++) {
+            board[0][c] = backRank[c];
+            board[1][c] = 'P';
+            board[6][c] = 'p';
+            board[7][c] = backRank[c].toLowerCase();
+        }
+        turn = 'white';
+        selected = null;
+        legalMoves = [];
+        moveHistory = [];
+        render();
+        updateInfo();
+    }
+
+    // ---------- Get piece colour ----------
+    function isWhite(piece) { return piece && piece === piece.toUpperCase(); }
+    function isBlack(piece) { return piece && piece === piece.toLowerCase(); }
+    function pieceColour(piece) {
+        if (!piece) return null;
+        return isWhite(piece) ? 'white' : 'black';
+    }
+
+    // ---------- Generate legal moves (simple, no castling/en passant) ----------
+    function generateMovesFor(boardState, row, col) {
+        const piece = boardState[row][col];
+        if (!piece) return [];
+        const colour = pieceColour(piece);
+        const moves = [];
+        const type = piece.toUpperCase();
+
+        const addMove = (r, c) => {
+            if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+            const target = boardState[r][c];
+            if (target && pieceColour(target) === colour) return false;
+            moves.push({row: r, col: c});
+            return !target; // continue if empty
+        };
+
+        switch (type) {
+            case 'P': {
+                const dir = colour === 'white' ? -1 : 1;
+                const startRow = colour === 'white' ? 6 : 1;
+                // forward
+                if (addMove(row + dir, col)) {
+                    // double advance
+                    if (row === startRow) addMove(row + 2*dir, col);
+                }
+                // captures
+                for (const dc of [-1, 1]) {
+                    const nr = row + dir;
+                    const nc = col + dc;
+                    if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
+                    const target = boardState[nr][nc];
+                    if (target && pieceColour(target) !== colour) moves.push({row: nr, col: nc});
+                }
+                break;
+            }
+            case 'N': {
+                for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+                    const nr = row + dr, nc = col + dc;
+                    if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
+                    const target = boardState[nr][nc];
+                    if (target && pieceColour(target) === colour) continue;
+                    moves.push({row: nr, col: nc});
+                }
+                break;
+            }
+            case 'B': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'R': {
+                for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'Q': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'K': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) {
+                    addMove(row + dr, col + dc);
+                }
+                break;
+            }
+        }
+        return moves;
+    }
+
+    // ---------- TSP entropy (tour length) ----------
+    function computeEntropy(boardState) {
+        const pieces = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (boardState[r][c]) pieces.push({x: c, y: r});
+            }
+        }
+        if (pieces.length <= 1) return 0;
+        // Sort by angle from centre
+        const angles = pieces.map(p => Math.atan2(p.y - 3.5, p.x - 3.5));
+        const order = pieces.map((_, i) => i).sort((a, b) => angles[a] - angles[b]);
+        let dist = 0;
+        for (let i = 0; i < order.length; i++) {
+            const p1 = pieces[order[i]];
+            const p2 = pieces[order[(i+1) % order.length]];
+            dist += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        }
+        return dist;
+    }
+
+    // ---------- Evaluation function ----------
+    function evaluate(boardState, colour) {
+        let weightSum = 0;
+        let count = 0;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = boardState[r][c];
+                if (p) {
+                    const w = WEIGHTS[p] || 0;
+                    weightSum += w;
+                    count++;
+                }
+            }
+        }
+        if (count === 0) return 0;
+        const entropy = computeEntropy(boardState);
+        // Score = weighted sum * (1 + 0.5 * (1 / (1 + entropy)))
+        const entropyFactor = 1 / (1 + entropy);
+        const score = weightSum * (1 + 0.5 * entropyFactor);
+        return colour === 'white' ? score : -score;
+    }
+
+    // ---------- Get all legal moves for a side ----------
+    function getAllMovesForSide(boardState, colour) {
+        const moves = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = boardState[r][c];
+                if (p && pieceColour(p) === colour) {
+                    const pieceMoves = generateMovesFor(boardState, r, c);
+                    for (const m of pieceMoves) {
+                        moves.push({fromRow: r, fromCol: c, toRow: m.row, toCol: m.col});
+                    }
+                }
+            }
+        }
+        return moves;
+    }
+
+    // ---------- Apply a move (returns new board) ----------
+    function applyMove(boardState, move) {
+        const newBoard = boardState.map(row => [...row]);
+        newBoard[move.toRow][move.toCol] = newBoard[move.fromRow][move.fromCol];
+        newBoard[move.fromRow][move.fromCol] = null;
+        return newBoard;
+    }
+
+    // ---------- Minimax (depth 2) with entropy-aware evaluation ----------
+    function minimax(boardState, depth, isMaximising, colour) {
+        if (depth === 0) {
+            return evaluate(boardState, colour);
+        }
+        const currentColour = isMaximising ? colour : (colour === 'white' ? 'black' : 'white');
+        const moves = getAllMovesForSide(boardState, currentColour);
+        if (moves.length === 0) {
+            return evaluate(boardState, colour);
+        }
+        let bestVal = isMaximising ? -Infinity : Infinity;
+        for (const move of moves) {
+            const newBoard = applyMove(boardState, move);
+            const val = minimax(newBoard, depth-1, !isMaximising, colour);
+            bestVal = isMaximising ? Math.max(bestVal, val) : Math.min(bestVal, val);
+        }
+        return bestVal;
+    }
+
+    // ---------- Find best move for a side using minimax ----------
+    function findBestMove(boardState, colour, depth=2) {
+        const moves = getAllMovesForSide(boardState, colour);
+        if (moves.length === 0) return null;
+        let bestMove = moves[0];
+        let bestScore = -Infinity;
+        for (const move of moves) {
+            const newBoard = applyMove(boardState, move);
+            const score = minimax(newBoard, depth-1, false, colour);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+        return bestMove;
+    }
+
+    // ---------- Find best move using greedy (immediate evaluation) ----------
+    function findGreedyMove(boardState, colour) {
+        const moves = getAllMovesForSide(boardState, colour);
+        if (moves.length === 0) return null;
+        let bestMove = moves[0];
+        let bestScore = -Infinity;
+        for (const move of moves) {
+            const newBoard = applyMove(boardState, move);
+            const score = evaluate(newBoard, colour);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+        return bestMove;
+    }
+
+    // ---------- UI ----------
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const entropyDisplay = document.getElementById('entropyDisplay');
+
+    function render() {
+        boardEl.innerHTML = '';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const square = document.createElement('div');
+                const isLight = (r + c) % 2 === 0;
+                square.className = `square ${isLight ? 'light' : 'dark'}`;
+                square.dataset.row = r;
+                square.dataset.col = c;
+                const piece = board[r][c];
+                if (piece) {
+                    const span = document.createElement('span');
+                    span.className = 'piece';
+                    span.textContent = SYMBOLS[piece] || piece;
+                    square.appendChild(span);
+                }
+                if (selected && selected.row === r && selected.col === c) {
+                    square.classList.add('selected');
+                }
+                if (legalMoves.some(m => m.row === r && m.col === c)) {
+                    square.classList.add('legal');
+                }
+                square.addEventListener('click', () => onSquareClick(r, c));
+                boardEl.appendChild(square);
+            }
+        }
+        updateInfo();
+    }
+
+    function updateInfo() {
+        const score = evaluate(board, turn);
+        const entropy = computeEntropy(board);
+        scoreDisplay.textContent = score.toFixed(2);
+        entropyDisplay.textContent = entropy.toFixed(2);
+    }
+
+    function onSquareClick(row, col) {
+        const piece = board[row][col];
+        // If no piece selected, try to select
+        if (!selected) {
+            if (piece && pieceColour(piece) === turn) {
+                selected = {row, col};
+                legalMoves = generateMovesFor(board, row, col);
+                statusEl.textContent = `Selected ${piece} at ${String.fromCharCode(65+col)}${8-row}`;
+                render();
+            }
+            return;
+        }
+        // If clicking on a legal target, make move
+        if (legalMoves.some(m => m.row === row && m.col === col)) {
+            const move = {fromRow: selected.row, fromCol: selected.col, toRow: row, toCol: col};
+            board = applyMove(board, move);
+            turn = turn === 'white' ? 'black' : 'white';
+            selected = null;
+            legalMoves = [];
+            statusEl.textContent = `Moved to ${String.fromCharCode(65+col)}${8-row}`;
+            render();
+            return;
+        }
+        // Click on another own piece: switch selection
+        if (piece && pieceColour(piece) === turn) {
+            selected = {row, col};
+            legalMoves = generateMovesFor(board, row, col);
+            statusEl.textContent = `Selected ${piece} at ${String.fromCharCode(65+col)}${8-row}`;
+            render();
+            return;
+        }
+        // Otherwise deselect
+        selected = null;
+        legalMoves = [];
+        statusEl.textContent = 'Selection cleared.';
+        render();
+    }
+
+    // ---------- AI moves ----------
+    function makeAIMove(strategy) {
+        if (!board) return;
+        const colour = turn;
+        let move = null;
+        if (strategy === 'greedy') {
+            move = findGreedyMove(board, colour);
+        } else if (strategy === 'minimax') {
+            move = findBestMove(board, colour, 2);
+        }
+        if (!move) {
+            statusEl.textContent = `No legal moves for ${colour}. Game over.`;
+            return;
+        }
+        board = applyMove(board, move);
+        turn = turn === 'white' ? 'black' : 'white';
+        selected = null;
+        legalMoves = [];
+        const from = String.fromCharCode(65 + move.fromCol) + (8 - move.fromRow);
+        const to = String.fromCharCode(65 + move.toCol) + (8 - move.toRow);
+        statusEl.textContent = `${strategy.charAt(0).toUpperCase()+strategy.slice(1)} moved ${from} → ${to}`;
+        render();
+    }
+
+    // ---------- Event listeners ----------
+    document.getElementById('greedyBtn').addEventListener('click', () => makeAIMove('greedy'));
+    document.getElementById('minimaxBtn').addEventListener('click', () => makeAIMove('minimax'));
+    document.getElementById('resetBtn').addEventListener('click', () => { initBoard(); statusEl.textContent = 'Board reset. Click a piece to start.'; });
+
+    // ---------- Start ----------
+    initBoard();
+    statusEl.textContent = 'Click a piece to see moves, then press Greedy or Minimax';
+</script>
+</body>
+</html>

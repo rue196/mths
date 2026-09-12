@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elliptic Möbius Chess · PDE History</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #06402B;
+            color: #d0d8d0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        h1 {
+            margin: 10px 0 6px 0;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: #c9d4c0;
+            text-shadow: 0 0 8px rgba(6,64,43,0.8);
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #9ab0a4;
+            margin-bottom: 16px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .board-wrapper {
+            background: #1e3d32;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+            border: 1px solid #2a5a48;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            border: 2px solid #3a6a55;
+        }
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.1s;
+            user-select: none;
+        }
+        .square.light { background: #b0c4b8; }
+        .square.dark { background: #7a9a86; }
+        .square.selected { outline: 4px solid #ffcc00; outline-offset: -4px; }
+        .square.legal { background: rgba(0,255,50,0.25) !important; }
+        .square .piece { text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        /* Piece colors */
+        .white-piece { color: #DA2C43; }
+        .black-piece { color: #069494; }
+
+        .controls {
+            margin: 15px 0;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .controls button {
+            padding: 10px 24px;
+            background: #2a5a48;
+            border: none;
+            border-radius: 8px;
+            color: #e0ece4;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .controls button:hover { background: #3a7a5e; }
+        .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .info-panel {
+            background: #1a3d30;
+            padding: 18px 24px;
+            border-radius: 12px;
+            min-width: 220px;
+            text-align: center;
+            border: 1px solid #2a5a48;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .info-panel h3 {
+            margin: 0 0 6px 0;
+            font-weight: 300;
+            color: #b0c8bc;
+            font-size: 16px;
+        }
+        .info-panel .score {
+            font-size: 26px;
+            font-weight: 600;
+            color: #d4e6dc;
+        }
+        .info-panel .entropy {
+            font-size: 18px;
+            color: #8aaa9a;
+        }
+        .elo-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .elo-item {
+            background: #0e3025;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 15px;
+        }
+        .elo-item span { font-weight: 600; }
+        .elo-white span { color: #DA2C43; }
+        .elo-black span { color: #069494; }
+
+        .history-section {
+            background: #1a3d30;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #2a5a48;
+            margin-top: 16px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .history-section select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0e3025;
+            color: #d0e0d4;
+            border: 1px solid #2a5a48;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .history-section select:focus { outline: 2px solid #069494; }
+        .history-label {
+            display: flex;
+            justify-content: space-between;
+            color: #9ab0a4;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .status {
+            margin-top: 12px;
+            padding: 10px 20px;
+            background: #0e3025;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+            min-height: 44px;
+            border: 1px solid #2a5a48;
+            color: #c0d4c8;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 6px 0 12px 0;
+        }
+        .legend-item {
+            background: #1a3d30;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: 1px solid #2a5a48;
+        }
+        .legend-item span { font-weight: bold; }
+
+        @media (max-width: 700px) {
+            .board { grid-template-columns: repeat(8, 48px); grid-template-rows: repeat(8, 48px); }
+            .square { width: 48px; height: 48px; font-size: 26px; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>♚ Elliptic Möbius Chess · PDE History</h1>
+<div class="subtitle">History‑driven evaluation with ELO rating</div>
+
+<div class="legend">
+    <div class="legend-item"><span style="color:#DA2C43;">♕</span> White</div>
+    <div class="legend-item"><span style="color:#069494;">♛</span> Black</div>
+</div>
+
+<div class="container">
+    <div class="board-wrapper">
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button id="greedyBtn">♜ Greedy</button>
+            <button id="minimaxBtn">♛ Minimax</button>
+            <button id="autoPlayBtn">▶ Auto Play</button>
+            <button id="resetBtn">⟲ Reset</button>
+        </div>
+        <div class="status" id="status">Click a piece to see moves, then press a strategy.</div>
+    </div>
+
+    <div class="info-panel">
+        <h3>Current Score</h3>
+        <div class="score" id="scoreDisplay">0.00</div>
+        <h3>Entropy (TSP length)</h3>
+        <div class="entropy" id="entropyDisplay">0.00</div>
+        <div class="elo-box">
+            <div class="elo-item elo-white"><span>White</span> <span id="eloWhite">1200</span></div>
+            <div class="elo-item elo-black"><span>Black</span> <span id="eloBlack">1200</span></div>
+        </div>
+        <div style="margin-top:12px; font-size:13px; color:#8aaa9a;">
+            <div>Greedy: low loop penalty</div>
+            <div>Minimax: high loop penalty, PDE‑aware</div>
+        </div>
+    </div>
+</div>
+
+<div class="history-section">
+    <div class="history-label">
+        <span>📜 Move History</span>
+        <span id="moveCount">0 moves</span>
+    </div>
+    <select id="historySelect" size="4">
+        <option value="">—</option>
+    </select>
+</div>
+
+<script>
+    // ---------- Constants ----------
+    const PI = Math.PI;
+    const E = Math.E;
+    const ALPHA = 1.0 / (PI - E);
+
+    const WEIGHTS = {
+        'P': 0.1, 'N': 0.3, 'B': 0.4, 'R': 0.5, 'Q': 1.0, 'K': 0.9,
+        'p': 0.1, 'n': 0.3, 'b': 0.4, 'r': 0.5, 'q': 1.0, 'k': 0.9
+    };
+    const SYMBOLS = {
+        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
+    };
+    // Piece colours for HTML (white-piece / black-piece)
+    const PIECE_COLOR_CLASS = {
+        'P': 'white-piece', 'N': 'white-piece', 'B': 'white-piece', 'R': 'white-piece', 'Q': 'white-piece', 'K': 'white-piece',
+        'p': 'black-piece', 'n': 'black-piece', 'b': 'black-piece', 'r': 'black-piece', 'q': 'black-piece', 'k': 'black-piece'
+    };
+
+    let board = [];
+    let turn = 'white';
+    let selected = null;
+    let legalMoves = [];
+    let autoPlayInterval = null;
+    let moveHistory = [];          // array of strings like "White Nf3"
+    let boardHistory = [];         // for PDE anchor tracking (stores hashes or board snapshots)
+    let eloWhite = 1200;
+    let eloBlack = 1200;
+
+    // ---------- Board initialisation ----------
+    function initBoard() {
+        const backRank = ['R','N','B','Q','K','B','N','R'];
+        board = Array(8).fill().map(() => Array(8).fill(null));
+        for (let c = 0; c < 8; c++) {
+            board[0][c] = backRank[c];
+            board[1][c] = 'P';
+            board[6][c] = 'p';
+            board[7][c] = backRank[c].toLowerCase();
+        }
+        turn = 'white';
+        selected = null;
+        legalMoves = [];
+        moveHistory = [];
+        boardHistory = [];
+        if (autoPlayInterval) { clearInterval(autoPlayInterval); autoPlayInterval = null; }
+        render();
+        updateInfo();
+        updateHistoryUI();
+        document.getElementById('status').textContent = 'Board reset. Click a piece to start.';
+    }
+
+    // ---------- Utilities ----------
+    function isWhite(piece) { return piece && piece === piece.toUpperCase(); }
+    function isBlack(piece) { return piece && piece === piece.toLowerCase(); }
+    function pieceColour(piece) { if (!piece) return null; return isWhite(piece) ? 'white' : 'black'; }
+
+    // ---------- Move generation (simplified) ----------
+    function generateMovesFor(boardState, row, col) {
+        const piece = boardState[row][col];
+        if (!piece) return [];
+        const colour = pieceColour(piece);
+        const moves = [];
+        const type = piece.toUpperCase();
+
+        const addMove = (r, c) => {
+            if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+            const target = boardState[r][c];
+            if (target && pieceColour(target) === colour) return false;
+            moves.push({row: r, col: c});
+            return !target;
+        };
+
+        switch (type) {
+            case 'P': {
+                const dir = colour === 'white' ? -1 : 1;
+                const startRow = colour === 'white' ? 6 : 1;
+                if (addMove(row + dir, col)) {
+                    if (row === startRow) addMove(row + 2*dir, col);
+                }
+                for (const dc of [-1, 1]) {
+                    const nr = row + dir, nc = col + dc;
+                    if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
+                    const target = boardState[nr][nc];
+                    if (target && pieceColour(target) !== colour) moves.push({row: nr, col: nc});
+                }
+                break;
+            }
+            case 'N': {
+                for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+                    const nr = row + dr, nc = col + dc;
+                    if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
+                    const target = boardState[nr][nc];
+                    if (target && pieceColour(target) === colour) continue;
+                    moves.push({row: nr, col: nc});
+                }
+                break;
+            }
+            case 'B': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'R': {
+                for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'Q': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        if (!addMove(row + i*dr, col + i*dc)) break;
+                    }
+                }
+                break;
+            }
+            case 'K': {
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) {
+                    addMove(row + dr, col + dc);
+                }
+                break;
+            }
+        }
+        return moves;
+    }
+
+    function getAllMovesForSide(boardState, colour) {
+        const moves = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = boardState[r][c];
+                if (p && pieceColour(p) === colour) {
+                    const pieceMoves = generateMovesFor(boardState, r, c);
+                    for (const m of pieceMoves) {
+                        moves.push({fromRow: r, fromCol: c, toRow: m.row, toCol: m.col});
+                    }
+                }
+            }
+        }
+        return moves;
+    }
+
+    function applyMove(boardState, move) {
+        const newBoard = boardState.map(row => [...row]);
+        newBoard[move.toRow][move.toCol] = newBoard[move.fromRow][move.fromCol];
+        newBoard[move.fromRow][move.fromCol] = null;
+        return newBoard;
+    }
+
+    // ---------- PDE influence: anchors are high-value pieces (Q, R) ----------
+    function computePDEPotential(boardState) {
+        // Anchor sum: sum of values of queens and rooks, weighted by distance? Here we just compute a potential field.
+        // For simplicity, we create a 2D array of potential that decreases with distance from anchors.
+        const potential = Array(8).fill().map(() => Array(8).fill(0));
+        let anchors = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = boardState[r][c];
+                if (p && (p.toUpperCase() === 'Q' || p.toUpperCase() === 'R')) {
+                    anchors.push({row: r, col: c, value: WEIGHTS[p] || 0});
+                }
+            }
+        }
+        if (anchors.length === 0) return potential;
+        // Fill potential: for each square, sum of anchor values / (1 + distance)
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let sum = 0;
+                for (const a of anchors) {
+                    const dist = Math.hypot(r - a.row, c - a.col);
+                    sum += a.value / (1 + dist);
+                }
+                potential[r][c] = sum;
+            }
+        }
+        return potential;
+    }
+
+    // ---------- Entropy (TSP length) ----------
+    function computeEntropy(boardState) {
+        const pieces = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (boardState[r][c]) pieces.push({x: c, y: r});
+            }
+        }
+        if (pieces.length <= 1) return 0;
+        const angles = pieces.map(p => Math.atan2(p.y - 3.5, p.x - 3.5));
+        const order = pieces.map((_, i) => i).sort((a, b) => angles[a] - angles[b]);
+        let dist = 0;
+        for (let i = 0; i < order.length; i++) {
+            const p1 = pieces[order[i]];
+            const p2 = pieces[order[(i+1) % order.length]];
+            dist += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        }
+        return dist;
+    }
+
+    // ---------- Loop detection ----------
+    function boardHash(boardState) {
+        let s = '';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                s += boardState[r][c] || '.';
+            }
+        }
+        return s;
+    }
+
+    // ---------- Evaluation with PDE potential ----------
+    function evaluate(boardState, colour, loopWeight = 0.5) {
+        let weightSum = 0;
+        let count = 0;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = boardState[r][c];
+                if (p) {
+                    weightSum += WEIGHTS[p] || 0;
+                    count++;
+                }
+            }
+        }
+        if (count === 0) return 0;
+        const entropy = computeEntropy(boardState);
+        const entropyFactor = 1 / (1 + entropy);
+        const baseScore = weightSum * (1 + 0.5 * entropyFactor);
+
+        // PDE bonus: encourage moving toward anchors (queens/rooks)
+        // We compute potential at each piece's position and add it to score.
+        const potential = computePDEPotential(boardState);
+        let pdeBonus = 0;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (boardState[r][c]) {
+                    pdeBonus += 0.05 * potential[r][c]; // small weight
+                }
+            }
+        }
+
+        // Loop penalty
+        const hash = boardHash(boardState);
+        const repeatCount = boardHistory.filter(h => h === hash).length;
+        const penalty = repeatCount * loopWeight * 0.5;
+
+        const score = baseScore + pdeBonus - penalty;
+        return colour === 'white' ? score : -score;
+    }
+
+    // ---------- Minimax with PDE ----------
+    function minimax(boardState, depth, isMaximising, colour, loopWeight) {
+        if (depth === 0) return evaluate(boardState, colour, loopWeight);
+        const currentColour = isMaximising ? colour : (colour === 'white' ? 'black' : 'white');
+        const moves = getAllMovesForSide(boardState, currentColour);
+        if (moves.length === 0) return evaluate(boardState, colour, loopWeight);
+        let bestVal = isMaximising ? -Infinity : Infinity;
+        for (const move of moves) {
+            const newBoard = applyMove(boardState, move);
+            const val = minimax(newBoard, depth-1, !isMaximising, colour, loopWeight);
+            bestVal = isMaximising ? Math.max(bestVal, val) : Math.min(bestVal, val);
+        }
+        return bestVal;
+    }
+
+    // ---------- Elliptic move scoring (with PDE) ----------
+    function ellipticScore(boardState, move, colour, loopWeight) {
+        const newBoard = applyMove(boardState, move);
+        const immediate = evaluate(newBoard, colour, loopWeight);
+        const oldEntropy = computeEntropy(boardState);
+        const newEntropy = computeEntropy(newBoard);
+        const entropyDelta = oldEntropy - newEntropy;
+        const opponent = colour === 'white' ? 'black' : 'white';
+        const opponentMoves = getAllMovesForSide(newBoard, opponent);
+        let worstOppScore = 0;
+        if (opponentMoves.length > 0) {
+            let minScore = Infinity;
+            for (const om of opponentMoves) {
+                const afterOpp = applyMove(newBoard, om);
+                const oppScore = evaluate(afterOpp, colour, loopWeight);
+                if (oppScore < minScore) minScore = oppScore;
+            }
+            worstOppScore = minScore;
+        }
+        // PDE potential change: compute potential before and after
+        const potBefore = computePDEPotential(boardState);
+        const potAfter = computePDEPotential(newBoard);
+        let pdeDelta = 0;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                pdeDelta += (potAfter[r][c] - potBefore[r][c]);
+            }
+        }
+        const score = 0.6 * immediate + 0.25 * worstOppScore + 0.1 * entropyDelta + 0.05 * pdeDelta;
+        return score;
+    }
+
+    // ---------- Find best move using elliptic scoring ----------
+    function findBestMove(boardState, colour, loopWeight = 0.5) {
+        const moves = getAllMovesForSide(boardState, colour);
+        if (moves.length === 0) return null;
+        let bestMove = moves[0];
+        let bestScore = -Infinity;
+        for (const move of moves) {
+            const score = ellipticScore(boardState, move, colour, loopWeight);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+        return bestMove;
+    }
+
+    // ---------- Greedy (low loop penalty) ----------
+    function findGreedyMove(boardState, colour) {
+        return findBestMove(boardState, colour, 0.2);
+    }
+
+    // ---------- Minimax (high loop penalty) ----------
+    function findMinimaxMove(boardState, colour) {
+        return findBestMove(boardState, colour, 1.0);
+    }
+
+    // ---------- ELO update ----------
+    function updateElo(result) {
+        // result: 1 = white wins, 0 = draw, -1 = black wins
+        const K_ELO = 32;
+        const expectedWhite = 1 / (1 + Math.pow(10, (eloBlack - eloWhite) / 400));
+        const expectedBlack = 1 - expectedWhite;
+        let scoreWhite, scoreBlack;
+        if (result === 1) { scoreWhite = 1; scoreBlack = 0; }
+        else if (result === -1) { scoreWhite = 0; scoreBlack = 1; }
+        else { scoreWhite = 0.5; scoreBlack = 0.5; }
+        eloWhite += K_ELO * (scoreWhite - expectedWhite);
+        eloBlack += K_ELO * (scoreBlack - expectedBlack);
+        // clamp
+        eloWhite = Math.max(100, Math.min(3000, eloWhite));
+        eloBlack = Math.max(100, Math.min(3000, eloBlack));
+        document.getElementById('eloWhite').textContent = Math.round(eloWhite);
+        document.getElementById('eloBlack').textContent = Math.round(eloBlack);
+    }
+
+    // ---------- UI ----------
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const entropyDisplay = document.getElementById('entropyDisplay');
+    const historySelect = document.getElementById('historySelect');
+    const moveCountSpan = document.getElementById('moveCount');
+
+    function render() {
+        boardEl.innerHTML = '';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const square = document.createElement('div');
+                const isLight = (r + c) % 2 === 0;
+                square.className = `square ${isLight ? 'light' : 'dark'}`;
+                square.dataset.row = r;
+                square.dataset.col = c;
+                const piece = board[r][c];
+                if (piece) {
+                    const span = document.createElement('span');
+                    span.className = `piece ${PIECE_COLOR_CLASS[piece] || ''}`;
+                    span.textContent = SYMBOLS[piece] || piece;
+                    square.appendChild(span);
+                }
+                if (selected && selected.row === r && selected.col === c) {
+                    square.classList.add('selected');
+                }
+                if (legalMoves.some(m => m.row === r && m.col === c)) {
+                    square.classList.add('legal');
+                }
+                square.addEventListener('click', () => onSquareClick(r, c));
+                boardEl.appendChild(square);
+            }
+        }
+        updateInfo();
+    }
+
+    function updateInfo() {
+        const score = evaluate(board, turn, 0.5);
+        const entropy = computeEntropy(board);
+        scoreDisplay.textContent = score.toFixed(2);
+        entropyDisplay.textContent = entropy.toFixed(2);
+    }
+
+    function updateHistoryUI() {
+        historySelect.innerHTML = '';
+        if (moveHistory.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = '—';
+            opt.value = '';
+            historySelect.appendChild(opt);
+        } else {
+            for (let i = 0; i < moveHistory.length; i++) {
+                const opt = document.createElement('option');
+                opt.textContent = `${i+1}. ${moveHistory[i]}`;
+                opt.value = i;
+                historySelect.appendChild(opt);
+            }
+        }
+        moveCountSpan.textContent = `${moveHistory.length} moves`;
+        // Auto-scroll to bottom
+        historySelect.scrollTop = historySelect.scrollHeight;
+    }
+
+    function onSquareClick(row, col) {
+        const piece = board[row][col];
+        if (!selected) {
+            if (piece && pieceColour(piece) === turn) {
+                selected = {row, col};
+                legalMoves = generateMovesFor(board, row, col);
+                statusEl.textContent = `Selected ${piece} at ${String.fromCharCode(65+col)}${8-row}`;
+                render();
+            }
+            return;
+        }
+        if (legalMoves.some(m => m.row === row && m.col === col)) {
+            const move = {fromRow: selected.row, fromCol: selected.col, toRow: row, toCol: col};
+            // Record move string
+            const piece = board[move.fromRow][move.fromCol];
+            const fromSquare = String.fromCharCode(65 + move.fromCol) + (8 - move.fromRow);
+            const toSquare = String.fromCharCode(65 + move.toCol) + (8 - move.toRow);
+            const moveStr = `${turn === 'white' ? 'White' : 'Black'} ${piece}${fromSquare}→${toSquare}`;
+            moveHistory.push(moveStr);
+            boardHistory.push(boardHash(board));
+
+            board = applyMove(board, move);
+            const captured = board[move.toRow][move.toCol]; // after move, but we already moved
+            // Actually after applyMove, the captured piece is removed; we stored it earlier.
+            turn = turn === 'white' ? 'black' : 'white';
+            selected = null;
+            legalMoves = [];
+            statusEl.textContent = `Moved ${moveStr}`;
+            // Check game over
+            if (getAllMovesForSide(board, turn).length === 0) {
+                // Checkmate or stalemate
+                const result = turn === 'white' ? -1 : 1; // if black to move and no moves, white wins
+                updateElo(result);
+                statusEl.textContent = `Game over! ${result === 1 ? 'White' : 'Black'} wins.`;
+            }
+            render();
+            updateHistoryUI();
+            return;
+        }
+        if (piece && pieceColour(piece) === turn) {
+            selected = {row, col};
+            legalMoves = generateMovesFor(board, row, col);
+            statusEl.textContent = `Selected ${piece} at ${String.fromCharCode(65+col)}${8-row}`;
+            render();
+            return;
+        }
+        selected = null;
+        legalMoves = [];
+        statusEl.textContent = 'Selection cleared.';
+        render();
+    }
+
+    // ---------- AI moves ----------
+    function makeAIMove(strategy) {
+        if (!board) return;
+        const colour = turn;
+        let move = null;
+        if (strategy === 'greedy') {
+            move = findGreedyMove(board, colour);
+        } else if (strategy === 'minimax') {
+            move = findMinimaxMove(board, colour);
+        }
+        if (!move) {
+            statusEl.textContent = `No legal moves for ${colour}. Game over.`;
+            // Determine result
+            const result = colour === 'white' ? -1 : 1;
+            updateElo(result);
+            return;
+        }
+        const piece = board[move.fromRow][move.fromCol];
+        const fromSquare = String.fromCharCode(65 + move.fromCol) + (8 - move.fromRow);
+        const toSquare = String.fromCharCode(65 + move.toCol) + (8 - move.toRow);
+        const moveStr = `${turn === 'white' ? 'White' : 'Black'} ${piece}${fromSquare}→${toSquare}`;
+        moveHistory.push(moveStr);
+        boardHistory.push(boardHash(board));
+
+        board = applyMove(board, move);
+        turn = turn === 'white' ? 'black' : 'white';
+        selected = null;
+        legalMoves = [];
+        statusEl.textContent = `${strategy.charAt(0).toUpperCase()+strategy.slice(1)} moved ${moveStr}`;
+        // Check game over
+        if (getAllMovesForSide(board, turn).length === 0) {
+            const result = turn === 'white' ? -1 : 1;
+            updateElo(result);
+            statusEl.textContent = `Game over! ${result === 1 ? 'White' : 'Black'} wins.`;
+        }
+        render();
+        updateHistoryUI();
+    }
+
+    // ---------- Auto Play ----------
+    function autoPlay() {
+        if (autoPlayInterval) {
+            clearInterval(autoPlayInterval);
+            autoPlayInterval = null;
+            document.getElementById('autoPlayBtn').textContent = '▶ Auto Play';
+            return;
+        }
+        document.getElementById('autoPlayBtn').textContent = '⏹ Stop';
+        autoPlayInterval = setInterval(() => {
+            const strategy = turn === 'white' ? 'greedy' : 'minimax';
+            makeAIMove(strategy);
+            if (getAllMovesForSide(board, turn).length === 0) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                document.getElementById('autoPlayBtn').textContent = '▶ Auto Play';
+                statusEl.textContent = `Game over! ${turn === 'white' ? 'Black' : 'White'} has no moves.`;
+            }
+        }, 800);
+    }
+
+    // ---------- Event listeners ----------
+    document.getElementById('greedyBtn').addEventListener('click', () => makeAIMove('greedy'));
+    document.getElementById('minimaxBtn').addEventListener('click', () => makeAIMove('minimax'));
+    document.getElementById('autoPlayBtn').addEventListener('click', autoPlay);
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        if (autoPlayInterval) { clearInterval(autoPlayInterval); autoPlayInterval = null; document.getElementById('autoPlayBtn').textContent = '▶ Auto Play'; }
+        initBoard();
+        statusEl.textContent = 'Board reset. Click a piece to start.';
+    });
+
+    // ---------- Start ----------
+    initBoard();
+    statusEl.textContent = 'Click a piece to see moves, then press a strategy.';
+</script>
+</body>
+</html>
