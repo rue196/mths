@@ -18,6 +18,18 @@ Many different use cases, Everywhere including many examples in the repository.
 
 They're are slightly tweaked for a given task but the integrity stays.
 
+For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
+
+which is for a normalized derivative which matches Dζ/dx.
+
+O(K) or constant time is the primitive root of Alpha or a which can be bounded between the two, either are viable 
+
+for constant time K. Which negative indices correspond to the amount of floating points(which can be adjusted) 
+
+to a indices with a transcendental entry length (2k + 1) which correspond to indices -K to K which have a 0 
+
+in the transcendental entry length, to which |Ci| are the indices only keeping the real part length which are 10^6. 
+
 Other specific llms used and insight to thinking and compiling my ideas.
 
 (projection operator) [click here](https://copilot.microsoft.com/shares/aqgt2iQhjUHf33vJhg6w6) from december(2025)
