@@ -20,7 +20,7 @@ They're are slightly tweaked for a given task but the integrity stays.
 
 For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
 
-which is for a normalized derivative which matches Dζ/dx.
+which is for a normalized finite derivative which matches Dζ/dx.
 
 O(K) or constant time is the primitive root of Alpha or a which can be bounded between the two, either are viable 
 
@@ -29,6 +29,8 @@ for constant time K. Which negative indices correspond to the amount of floating
 to a indices with a transcendental entry length (2k + 1) which correspond to indices -K to K which have a 0 
 
 in the transcendental entry length, to which |Ci| are the indices only keeping the real part length which are 10^6. 
+
+For larger K Use Chip.py and the chip compression pipeline to AVOID OVERFLOW on normal O(n) hardware.
 
 Other specific llms used and insight to thinking and compiling my ideas.
 
