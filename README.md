@@ -32,6 +32,8 @@ in the transcendental entry length, to which |Ci| are the indices only keeping t
 
 For larger K Use Chip.py and the chip compression pipeline to AVOID OVERFLOW on normal O(n) hardware.
 
+Else use small K like K=1. 
+ 
 Other specific llms used and insight to thinking and compiling my ideas.
 
 (projection operator) [click here](https://copilot.microsoft.com/shares/aqgt2iQhjUHf33vJhg6w6) from december(2025)
