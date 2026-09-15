@@ -38,7 +38,11 @@ Encryption (?) that is lead up to the reader to decide....
 
 // For quantitative finance use trading-harness.py and harmonic-equilibrium-recip.py instead of PDE's in O(K log log K) 
 
-plug into an ML/Ai algorithm, use quick-analyze.py in O(K log K) 
+plug into an ML/Ai algorithm, use quick-analyze.py in O(K log K), let llmsinstruction.md set to d-supply-chain-harmonic
+
+or the other versions under wave-supply "wave-demand-supply-pyramid.pdf" or 
+
+"unified_wave_pyramid_models.pdf" or "supply_chain_depth_model (1).pdf"
 
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
