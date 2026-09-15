@@ -32,7 +32,9 @@ in the transcendental entry length, to which |Ci| are the indices only keeping t
 
 For larger K Use Chip.py and the chip compression pipeline to AVOID OVERFLOW on normal O(n) hardware.
 
-Else use small K like K=1. 
+Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
+
+Encryption (?) that is lead up to the reader to decide....
 
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
