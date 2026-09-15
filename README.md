@@ -44,6 +44,10 @@ or the other versions under wave-supply "wave-demand-supply-pyramid.pdf" or
 
 "unified_wave_pyramid_models.pdf" or "supply_chain_depth_model (1).pdf"
 
+// For coding harness there are two for store and trace in to pull from bad code in a database and store for later 
+
+"checksum-code.py" for normal checks and "bug-asymmetric-mobius-gate-suisse-trace.py" for store for later when coding. 
+
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
 Other specific llms used and insight to thinking and compiling my ideas.
