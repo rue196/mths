@@ -40,9 +40,7 @@ Encryption (?) that is lead up to the reader to decide....
 
 plug into an ML/Ai algorithm, use quick-analyze.py in O(K log K), let llmsinstruction.md set to d-supply-chain-harmonic
 
-or the other versions under wave-supply "wave-demand-supply-pyramid.pdf" or 
-
-"unified_wave_pyramid_models.pdf" or "supply_chain_depth_model (1).pdf"
+or the other versions under wave-supply "supply_chain_depth_model (1).pdf" 
 
 // For coding harness there are two for store and trace in to pull from bad code in a database and store for later 
 
