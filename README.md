@@ -36,6 +36,10 @@ Else use small K like K=1. But chip compression should always be in use to avoid
 
 Encryption (?) that is lead up to the reader to decide....
 
+// For quantitative finance use trading-harness.py and harmonic-equilibrium-recip.py instead of PDE's in O(K log log K) 
+
+plug into an ML/Ai algorithm, use quick-analyze.py in O(K log K) 
+
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
 Other specific llms used and insight to thinking and compiling my ideas.
