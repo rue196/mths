@@ -70,7 +70,7 @@ AS WELL as "C:mths\Lyotard_Jean-Francois_The_Postmodern_Condition_A_Report_on_Kn
 
 // Use "supply_chain_depth_model (1).pdf" For quantized business analysis, given the equation in figure 3.2.  
 
-Also account for interest rates in 'interest-rates.py'.
+Also account for interest rates in 'interest-rates.py' and use quick analyze and search in O(K log log K) .
  
 Other specific llms used and insight to thinking and compiling my ideas.
 
