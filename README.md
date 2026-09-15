@@ -50,6 +50,10 @@ or the other versions under wave-supply "wave-demand-supply-pyramid.pdf" or
 
 modify quick-anakyze.py for parsing through large data bases.
 
+** to note, with the Chip-compression pipeline and O(K) complexity python is faster and has less overhead garbage collection that both 
+
+c c++ and rust **
+
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
 Other specific llms used and insight to thinking and compiling my ideas.
