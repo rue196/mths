@@ -48,6 +48,8 @@ or the other versions under wave-supply "wave-demand-supply-pyramid.pdf" or
 
 "checksum-code.py" for normal checks and "bug-asymmetric-mobius-gate-suisse-trace.py" for store for later when coding. 
 
+modify quick-anakyze.py for parsing through large data bases.
+
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
  
 Other specific llms used and insight to thinking and compiling my ideas.
