@@ -74,6 +74,8 @@ Also account for interest rates in 'interest-rates.py' and use quick analyze and
  
 Other specific llms used and insight to thinking and compiling my ideas.
 
+//For econometric analysis use quick-analyze.py and ML.py "supply_chain_depth_model (1).pdf" for 'unplanned' economies?
+
 (projection operator) [click here](https://copilot.microsoft.com/shares/aqgt2iQhjUHf33vJhg6w6) from december(2025)
 
 and (integral constant) [click here](https://claude.ai/share/3e4d6189-3dcd-473e-b1b3-f4e9d622006f) from June this year
