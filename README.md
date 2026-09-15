@@ -36,7 +36,7 @@ Else use small K like K=1. But chip compression should always be in use to avoid
 
 Encryption (?) that is lead up to the reader to decide....
 
-// For quantitative finance use trading-harness.py and harmonic-equilibrium-recip.py instead of PDE's in O(K log log K) 
+// For quantitative finance use trading-harness.py 
 
 plug into an ML/Ai algorithm, use quick-analyze.py in O(K log K), let llmsinstruction.md set to d-supply-chain-harmonic
 
