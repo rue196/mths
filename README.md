@@ -24,7 +24,7 @@ For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the f
 
 which is for a normalized finite derivative which matches Dζ/dx.
 
-O(K) or constant time is the primitive root of Alpha or a which can be bounded between the two, either are viable 
+O(K) or constant time is the primitive root of Alpha or (a) which can be bounded between the two, either are viable 
 
 for constant time K. Which negative indices correspond to the amount of floating points(which can be adjusted) 
 
@@ -46,11 +46,11 @@ or the other versions under wave-supply "supply_chain_depth_model (1).pdf"
 
 // For coding harness there are two for store and trace in to pull from bad code in a database and store for later 
 
-"checksum-code.py" for normal checks and "bug-asymmetric-mobius-gate-suisse-trace.py" for store for later when coding. 
+"checksum-code.py" for normal checks and "bug-asymmetric-mobius-gate-suisse-trace.py" to store for later when coding. 
 
-modify quick-anakyze.py for parsing through large data bases.
+modify quick-anakyze.py for parsing through a large data bases.
 
-** to note, with the Chip-compression pipeline and O(K) complexity python is faster compiling; it also has less overhead garbage collection than both 
+** to note, with the Chip-compression(chip.py or chip-g.py) pipeline and O(K) complexity python is faster compiling; it also has less overhead garbage collection than both 
 
 c/c++ and rust **
 
