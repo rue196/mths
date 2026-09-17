@@ -32,7 +32,7 @@ to a indices with a transcendental entry length (2k + 1) which correspond to ind
 
 in the transcendental entry length, to which |Ci| are the indices only keeping the real part length which are 10^6. 
 
-For larger K Use Chip.py and the chip compression pipeline to AVOID OVERFLOW on normal O(n) hardware.
+For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {updated as of 17-09-2026}** to AVOID OVERFLOW on normal O(n) hardware.
 
 Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
 
