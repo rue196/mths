@@ -1,5 +1,7 @@
 Archive, made mostly with coding assistance from deepseek.
 
+**Mostly translations of already existing frameworks**
+
 Mathematical objects used can differentiated by ;
 
 M swiss knife matrix  which is a 2d graph, 3d projection
