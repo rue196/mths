@@ -60,7 +60,7 @@ For server inference use "# mobius_server.py" and "signal-pi-e-losseless.py" and
 
 "signal-3d-6d.py" and "test-signal-throughput.py" for 6 vertex is 3d wave packet, as well as "hex-dns-mobius.py" for word compression . 
 
-While for heat management on chips use "convolution-maxwell-handler.py" 
+While for heat management on chips use ""**mobius-sat-maxwell-handler.py**"" 
 
 For computing screen steps on electronic devices use "screen-test-fft-finite-step.py" and "color.py"
 
