@@ -36,7 +36,11 @@ For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {
 
 Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
 
-Encryption (?) that is lead up to the reader to decide....(Advised to use projection-suisse-encrypt.py or derivations)
+//Encryption (?) that is lead up to the reader to decide....(Advised to use projection-suisse-encrypt.py or derivations)
+
+also deterministic 'super-polynomials' aren't helpful techniques and aren't advised, Please scramble as much as possible with the least recoupable 
+
+steps for that which a computer can't see, or a human. 
 
 // For quantitative finance use trading-harness.py 
 
