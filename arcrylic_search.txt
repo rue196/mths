@@ -1,0 +1,45 @@
+INPUT:
+  target color or target Lab
+  acrylic constraints
+  petroleum feedstock fragment library
+
+INITIALIZE:
+  population = generate_molecules_from_fragments(
+      azo, phthalocyanine, quinacridone, perylene, DPP, isoindolinone, anthraquinone
+  )
+
+FOR generation = 1 to G:
+
+  FOR each molecule in population:
+
+    conformer = embed_3d(molecule)
+    vertices = select_12_conjugated_vertices(conformer)
+    M = build_flow_matrix(vertices, conformer)
+
+    S = supertrace(M)
+    H = entropy(S, N=12)
+    m = abs(S) * exp(-H)
+
+    Pi = scalar_perm_12_6(M)
+    kappa = log(1 + abs(Pi)/Pi0) + eta*m + zeta*n_conj
+
+    lambda_peak = 380 + 370 * sigmoid(kappa)
+    R = lorentzian_spectrum(lambda_peak, m, H)
+    Lab = spectrum_to_CIELAB(R)
+
+    dE = deltaE00(Lab, target_Lab)
+
+    acrylic = acrylic_score(molecule)
+    tox = toxicity_score(molecule)
+    cost = cost_score(molecule)
+    lightfast = lightfastness_score(molecule)
+
+    fitness = -dE
+              + w1*acrylic
+              + w2*lightfast
+              - w3*tox
+              - w4*cost
+
+  population = evolve(population, fitness)
+
+RETURN top 20 molecules ranked by fitness
