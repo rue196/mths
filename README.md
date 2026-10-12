@@ -68,6 +68,8 @@ AS well as "fiber-optic-signal-ugc.py" for lossy fiber-optics **or a path toward
 
 accuracy in reconstruction as well ? ** 
 
+Use Q-mechanics/quantum_geo_location_2c.py for offline geo-location without GPS. 
+
 While for heat management on chips use ""**mobius-sat-maxwell-handler.py**"" 
 
 For computing screen steps on electronic devices use "screen-test-fft-finite-step.py" and "color.py"
