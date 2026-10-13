@@ -68,7 +68,7 @@ AS well as "fiber-optic-signal-ugc.py" for lossy fiber-optics **or a path toward
 
 accuracy in reconstruction as well ? ** 
 
-Use Q-mechanics/quantum_geo_location_2c.py and Q-mechanics/coupling_Q_entanglement.py, for offline geo-location without GPS[accurate to a several centimeters to several feet 3ft radius] no spoofing either.  
+Use Q-mechanics/coupling_Q_entanglement.py, for offline geo-location without GPS[accurate to a several centimeters to several feet 3ft radius] no spoofing either.  
 
 While for heat management on chips use ""**mobius-sat-maxwell-handler.py**"" 
 
