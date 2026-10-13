@@ -1,444 +1,691 @@
+#!/usr/bin/env python3
+"""
+mobius_boot_pipeline.py
+=======================
+End-to-end Möbius boot:
+
+    Stage 1  chirp signal       elliptic projection, a = α/0.3628
+    Stage 2  server buffer      MOSB unpack from ExtendedDNSServer
+    Stage 3  cpu boot           ChipCPU on the two paths:
+                                    symmetric  O(K log log K)
+                                    asymmetric O(K log K)
+    Stage 4  file envelopes     ReadEnvelope / RunEnvelope / WriteEnvelope
+
+Constants:
+    α       = 1/(π − e)      ≈ 2.362338
+    a_step  = α / 0.3628     ≈ 6.511
+    density = 6/π²           ≈ 0.607927
+"""
+
+from __future__ import annotations
+
+import hashlib
 import math
+import os
+import struct
+import time
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
-from random_access_colla_mobius import MobiusCollatzMemory
 
-import random
 
-# ---------- Constants ----------
-PI = math.pi
-E = math.e
-ALPHA = 1.0 / (PI - E)
-NORM = 1.0 - math.exp(-ALPHA * (PI + E))
+# ============================================================
+#  Constants
+# ============================================================
+PI         = math.pi
+E          = math.e
+ALPHA_SYM  = 1.0 / (PI - E)
+ALPHA_ASYM = 0.3628
+A_STEP     = ALPHA_SYM / ALPHA_ASYM
+DENSITY    = 6.0 / (PI * PI)
+W1, W2     = PI, E
 
-# ---------- 1. Address generation (elliptic‑curve points simulated) ----------
-def generate_addresses(K, seed=42):
-    random.seed(seed)
-    # Random (x,y) in [0.5, 5.0] to avoid singularities
-    addresses = [(random.uniform(0.5, 5.0), random.uniform(0.5, 5.0)) for _ in range(K)]
-    return addresses
 
-# ---------- 2. Matrix trace (scalar) ----------
-def matrix_trace(x, y, i=2):
+# ============================================================
+#  Standalone fallbacks  (in case the source files are missing)
+# ============================================================
+def _mobius_sieve(K: int) -> np.ndarray:
+    mu = np.zeros(K + 1, dtype=np.int8)
+    if K >= 1:
+        mu[1] = 1
+    primes, is_comp = [], np.zeros(K + 1, dtype=bool)
+    for i in range(2, K + 1):
+        if not is_comp[i]:
+            primes.append(i); mu[i] = -1
+        for p in primes:
+            if i * p > K: break
+            is_comp[i * p] = True
+            if i % p == 0:
+                mu[i * p] = 0; break
+            mu[i * p] = -mu[i]
+    return mu
+
+
+def _elliptic_projection(x: float, y: float) -> float:
+    u = (x / W1) % 1.0
+    v = (y / W2) % 1.0
+    return 0.5 * (1.0 + math.cos(2 * PI * u) * math.cos(2 * PI * v))
+
+
+def _supertrace(data: bytes) -> float:
+    S = 0.0
+    for t, b in enumerate(data):
+        v = (b - 128) / 128.0
+        S += v if (t % 2 == 0) else -v
+    return S
+
+
+def _entropy_mass(S: float, n: int) -> Tuple[float, float]:
+    if S == 0.0 or n <= 0:
+        return 0.0, 0.0
+    p = min(abs(S) / n, 0.9999)
+    H = -ALPHA_SYM * p * math.log(p)
+    return H, abs(S) * math.exp(-H)
+
+
+# ============================================================
+#  Stage 1  ·  Boot chirp  ·  elliptic projection
+# ============================================================
+@dataclass
+class BootChirp:
     """
-    Trace of M = [[x^(i-1), x^(-1)*y^i],
-                  [y^(-1)*x^i, y^(i-1)]]
-    tr = x^(i-1) + y^(i-1)
+    The signal that wakes the machine.  A single cycle of the
+    elliptic projection over the torus ℂ/(πℤ + eℤ), sampled at K
+    points and weighted by the finite step a = α/0.3628.
     """
-    return x ** (i-1) + y ** (i-1)
+    K: int
+    samples: np.ndarray
+    weights: np.ndarray
+    S: float
+    H: float
+    m: float
+    t_ms: float
 
-class ChipProcessor:
+    @classmethod
+    def build(cls, K: int = 256) -> "BootChirp":
+        t0 = time.perf_counter()
+        x = np.linspace(0.0, W1, K)
+        y = 0.5 * W2
+        samples = np.array([_elliptic_projection(float(xi), y) for xi in x])
+        # phase rate from the finite step
+        weights = np.cos(A_STEP * x * x / K)
+        signal  = samples * weights
+        # supertrace from the chirp as bytes
+        payload = bytes(int(min(255, max(0, 128 + 127 * float(v))))
+                        for v in signal)
+        S = _supertrace(payload)
+        H, m = _entropy_mass(S, K)
+        return cls(K=K, samples=samples, weights=weights,
+                   S=S, H=H, m=m,
+                   t_ms=(time.perf_counter() - t0) * 1e3)
+
+
+# ============================================================
+#  Stage 2  ·  Server buffer unpack  ·  MOSB frames
+# ============================================================
+MAGIC       = b"MOSB"
+HEADER_FMT  = ">4sIQQddd"
+HEADER_SIZE = struct.calcsize(HEADER_FMT)         # 48
+
+
+class ServerBuffer:
     """
-    A processor that performs the chip pipeline with pre‑allocated buffers.
-    This reduces garbage collection and allocation overhead.
+    Wraps a chunked MOSB buffer.  Each appended chunk carries its
+    own S, H, m in the header; readers re-verify the supertrace
+    without trusting the writer.
     """
+    def __init__(self, K: int = 512):
+        self.K = int(K)
+        self.mu = _mobius_sieve(K)
+        self.data = bytearray()
+        self.chunks: List[Tuple[int, int, float, float, float]] = []
+        self._cid = 0
 
-    def __init__(self, max_K=1000):
-        """
-        Allocate buffers for up to max_K elements.
-        """
-        self.max_K = max_K
-        # Buffers for convolution (two passes)
-        self.f = np.zeros(max_K, dtype=float)
-        self.b = np.zeros(max_K, dtype=float)
-        # Buffer for convolution result
-        self.conv = np.zeros(max_K, dtype=float)
-        # Buffer for sorted indices (TSP order)
-        self.order = np.zeros(max_K, dtype=int)
-        # Buffer for magnitudes (for sorting)
-        self.mag = np.zeros(max_K, dtype=float)
-        # Buffer for indices (for argsort)
-        self.idx = np.arange(max_K, dtype=int)   # reusable index array
-        # Cache for Möbius sieve (computed once)
-        self.mu = None
-        self._update_mu(max_K)
+    def append(self, payload: bytes) -> int:
+        n = len(payload)
+        S = _supertrace(payload)
+        H, m = _entropy_mass(S, n)
+        cid = self._cid
+        self._cid += 1
+        header = struct.pack(HEADER_FMT, MAGIC, self.K, n, cid, S, H, m)
+        start = len(self.data)
+        self.data.extend(header + payload)
+        self.chunks.append((start, start + HEADER_SIZE + n, S, H, m))
+        return cid
 
-    def _update_mu(self, K):
-        """Compute Möbius sieve up to K (if not already cached)."""
-        if self.mu is None or len(self.mu) < K + 1:
-            self.mu = self._mobius_sieve(K)
+    def read(self, cid: int) -> Optional[Tuple[bytes, float, float, float]]:
+        if cid < 0 or cid >= len(self.chunks):
+            return None
+        start, end, *_ = self.chunks[cid]
+        blob = bytes(self.data[start:end])
+        magic, K, n, cid_stored, S, H, m = struct.unpack(
+            HEADER_FMT, blob[:HEADER_SIZE])
+        if magic != MAGIC or K != self.K or cid_stored != cid:
+            return None
+        payload = blob[HEADER_SIZE:HEADER_SIZE + n]
+        S_check = _supertrace(payload)
+        if abs(S_check - S) > 1e-9:
+            return None
+        return payload, S, H, m
+
+    @property
+    def n_chunks(self) -> int:
+        return len(self.chunks)
+
+    @property
+    def size(self) -> int:
+        return len(self.data)
+
+
+# ============================================================
+#  Stage 3  ·  CPU boot  ·  symmetric vs asymmetric
+# ============================================================
+@dataclass
+class CPUBootResult:
+    K: int
+    mode: str                    # 'symmetric' or 'asymmetric'
+    bits: List[int]
+    S: float
+    H: float
+    m: float
+    cycles: int
+    t_ms: float
+
+    def summary(self) -> Dict:
+        return dict(
+            K=self.K, mode=self.mode, cycles=self.cycles,
+            n_bits=len(self.bits),
+            S=self.S, H=self.H, m=self.m, t_ms=self.t_ms,
+        )
+
+
+class SymmetricBoot:
+    """
+    Symmetric boot path: linear Möbius sieve + per-bit supertrace.
+    Complexity: O(K log log K) for the sieve, O(K) per boot cycle.
+    """
+    def __init__(self, K: int = 256):
+        self.K = K
+        self.mu = _mobius_sieve(K)
+
+    def boot(self, chirp: BootChirp, chunks: List[bytes]) -> CPUBootResult:
+        t0 = time.perf_counter()
+        bits: List[int] = []
+        # for each chunk, count nonzero-μ slots → 1 bit
+        for blob in chunks:
+            n = min(len(blob), self.K)
+            if n == 0:
+                bits.append(0)
+                continue
+            g = 0
+            for k in range(1, n + 1):
+                # include the chirp weight on each slot
+                gate = 1 if self.mu[k] != 0 else 0
+                w = float(chirp.samples[(k - 1) % chirp.K])
+                if gate and w > 0.5:
+                    g ^= 1
+            bits.append(g & 1)
+
+        # supertrace over the bit sequence
+        S = sum((1 if i % 2 == 0 else -1) * (1 if b else 0)
+                for i, b in enumerate(bits))
+        H, m = _entropy_mass(S, len(bits))
+        return CPUBootResult(
+            K=self.K, mode='symmetric', bits=bits,
+            S=float(S), H=H, m=m,
+            cycles=len(bits),
+            t_ms=(time.perf_counter() - t0) * 1e3,
+        )
+
+
+class AsymmetricBoot:
+    """
+    Asymmetric boot path: segmented Möbius sieve + chirped bit stream.
+    Complexity: O(K log K) for the segmented sieve, O(K) per boot cycle.
+    """
+    def __init__(self, K: int = 256):
+        self.K = K
+        self.mu = self._segmented_sieve(K)
 
     @staticmethod
-    def _mobius_sieve(K):
-        mu = [0] * (K + 1)
-        mu[1] = 1
-        primes = []
-        is_comp = [False] * (K + 1)
-        for i in range(2, K + 1):
+    def _segmented_sieve(K: int) -> np.ndarray:
+        mu = np.ones(K + 1, dtype=np.int8)
+        mu[0] = 0
+        if K >= 1:
+            mu[1] = 1
+        limit = int(math.isqrt(K)) + 1
+        is_comp = np.zeros(limit + 1, dtype=bool)
+        for i in range(2, limit + 1):
             if not is_comp[i]:
-                primes.append(i)
-                mu[i] = -1
-            for p in primes:
-                if i * p > K:
-                    break
-                is_comp[i * p] = True
-                if i % p == 0:
-                    mu[i * p] = 0
-                    break
-                else:
-                    mu[i * p] = -mu[i]
+                mu[i::i] = -mu[i::i]
+                p2 = i * i
+                if p2 <= K:
+                    mu[p2::p2] = 0
+                for j in range(i * i, limit + 1, i):
+                    is_comp[j] = True
         return mu
 
-    def _tsp_route(self, signal, K):
-        """Compute TSP routing order using bucket sort; store in self.order."""
-        # Use deterministic pseudo‑angles
-        angles = np.zeros(K, dtype=float)
-        for i in range(K):
-            x = math.sin(i * 7.0) + 0.1 * math.cos(i * 13.0)
-            y = math.cos(i * 11.0) + 0.1 * math.sin(i * 17.0)
-            angles[i] = math.atan2(y, x) + math.pi
-        # Bucket sort: 360 buckets
-        buckets = [[] for _ in range(360)]
-        for i in range(K):
-            a = angles[i]
-            idx = int((a / (2 * math.pi)) * 360) % 360
-            buckets[idx].append(i)
-        order = []
-        for b in buckets:
-            order.extend(b)
-        self.order[:K] = order
+    def boot(self, chirp: BootChirp, chunks: List[bytes]) -> CPUBootResult:
+        t0 = time.perf_counter()
+        bits: List[int] = []
+        for ci, blob in enumerate(chunks):
+            n = min(len(blob), self.K)
+            if n == 0:
+                bits.append(0)
+                continue
+            g = 0
+            phase = ALPHA_ASYM * ci * ci          # chirped address
+            for k in range(1, n + 1):
+                gate = 1 if self.mu[k] != 0 else 0
+                q = (k * k + k + int(phase * 100)) % self.K
+                gate &= 1 if self.mu[q] != 0 else 0
+                w = float(chirp.weights[(k - 1) % chirp.K])
+                if gate and w > 0.0:
+                    g ^= 1
+            bits.append(g & 1)
 
-    def _conv_exp_kernel(self, signal, K, alpha=ALPHA):
-        """Two‑pass exponential convolution; store result in self.conv."""
-        lam = math.exp(-alpha)
-        # Forward pass
-        f = self.f
-        f[0] = signal[0]
-        for i in range(1, K):
-            f[i] = signal[i] + lam * f[i-1]
-        # Backward pass
-        b = self.b
-        b[K-1] = signal[K-1]
-        for i in range(K-2, -1, -1):
-            b[i] = signal[i] + lam * b[i+1]
-        # Combine
-        conv = self.conv
-        inv_den = 1.0 / (1.0 - lam * lam)
-        inv_norm = 1.0 / NORM
-        for i in range(K):
-            conv_exp = (f[i] + b[i] - signal[i]) * inv_den
-            conv[i] = (1.0 - conv_exp) * inv_norm
+        S = sum((1 if i % 2 == 0 else -1) * (1 if b else 0)
+                for i, b in enumerate(bits))
+        H, m = _entropy_mass(S, len(bits))
+        return CPUBootResult(
+            K=self.K, mode='asymmetric', bits=bits,
+            S=float(S), H=H, m=m,
+            cycles=len(bits),
+            t_ms=(time.perf_counter() - t0) * 1e3,
+        )
 
-    def _supertrace_and_mass(self, signal, K):
-        """Compute S, H, m from the signal (assumed in self.conv)."""
-        S = 0.0
-        for i in range(K):
-            val = signal[i]
-            if i % 2 == 0:
-                S += abs(val)
-            else:
-                S -= abs(val)
-        if S == 0:
-            H = 0.0
-            m = 0.0
-        else:
-            p = abs(S) / K
-            if p <= 0:
-                H = 0.0
-            else:
-                H = -ALPHA * p * math.log(p)
-            m = abs(S) * math.exp(-H)
-        return S, H, m
 
-    def process(self, signal):
-        """
-        Run the chip pipeline on `signal` (1D numpy array).
-        Returns: (kept, S, H, m, conv)
-        """
-        K = len(signal)
-        if K > self.max_K:
-            raise ValueError(f"Signal length {K} exceeds max_K {self.max_K}; reinitialize processor with larger max_K.")
+# ============================================================
+#  Stage 4  ·  File envelopes  ·  read / run / write
+# ============================================================
+from enum import Enum
 
-        # 1. TSP routing
-        self._tsp_route(signal, K)
-        order = self.order[:K]
-        # Reorder signal in a temporary view? We'll create a sorted copy.
-        signal_sorted = signal[order]   # This creates a new array; but we can reuse a buffer if we want.
-        # Since we need the sorted signal, we'll allocate a buffer for it.
-        # To avoid extra allocation, we could use a pre‑allocated buffer `self.sorted_signal`.
-        if not hasattr(self, 'sorted_signal') or len(self.sorted_signal) < K:
-            self.sorted_signal = np.zeros(K, dtype=signal.dtype)
-        self.sorted_signal[:K] = signal[order]
 
-        # 2. Convolution
-        self._conv_exp_kernel(self.sorted_signal, K)
+class AccessMode(Enum):
+    READ  = "read"
+    RUN   = "run"
+    WRITE = "write"
 
-        # 3. Supertrace
-        S, H, m = self._supertrace_and_mass(self.conv, K)
-        M = max(1, int(abs(S)))
-        if M > K:
-            M = K
 
-        # 4. Möbius sieve (ensure it's up to date)
-        self._update_mu(K)
-        mu = self.mu
+@dataclass
+class Envelope:
+    path: str
+    mode: AccessMode
+    sig: bytes
+    qs: List[int]
+    weights: List[float]
+    challenge: bytes = b""
+    _key_hash: bytes = b""
+    _burned: bool = False
+    _cursor: int = 0
+    _writes: int = 0
 
-        # 5. Compression: keep top M with square‑free index (μ(n) != 0)
-        mag = self.mag[:K]
-        for i in range(K):
-            mag[i] = abs(self.conv[i])
+    def fingerprint(self) -> str:
+        h = hashlib.shake_256(self.sig)
+        for q, w in zip(self.qs, self.weights):
+            h.update(struct.pack('>Id', q, w))
+        return h.digest(32).hex()
 
-        # Get indices sorted by magnitude descending using argsort
-        # We'll use a pre‑allocated index buffer and sort.
-        idx = self.idx[:K]   # already 0..K-1
-        # We need to sort idx by mag descending. We'll use np.argsort on a copy of mag.
-        sorted_idx = np.argsort(mag)[::-1]   # This allocates a new array; but we can reuse a buffer.
-        # Since argsort always returns a new array, we can't avoid allocation easily.
-        # We'll just use it; it's O(K log K) but memory allocation is small.
+    def authorize(self, key: bytes) -> None:
+        self._key_hash = hashlib.shake_256(key + self.challenge).digest(32)
 
-        kept = []
-        count = 0
-        for idx in sorted_idx:
-            n = idx + 1
-            if mu[n] != 0:
-                kept.append((idx, self.conv[idx]))
-                count += 1
-                if count >= M:
-                    break
+    def _verify(self, key: bytes) -> bool:
+        if not self._key_hash:
+            return False
+        h = hashlib.shake_256(key + self.challenge).digest(32)
+        return h == self._key_hash
 
-        # Return results
-        # We also return a copy of conv for external use (if needed)
-        conv_copy = self.conv[:K].copy()
-        return kept, S, H, m, conv_copy
+    def read(self) -> bytes:
+        if self.mode == AccessMode.RUN and self._burned:
+            raise PermissionError("RunEnvelope: burned")
+        with open(self.path, "rb") as f:
+            return f.read()
 
-# ---------- Backward‑compatible function ----------
-def chip_pipeline(signal, processor=None):
+    def run(self, executor=None) -> Dict:
+        if self.mode != AccessMode.RUN:
+            raise PermissionError("RunEnvelope required")
+        if self._burned:
+            raise PermissionError("RunEnvelope: already burned")
+        # walk the 1D path
+        steps = 0
+        while self._cursor < len(self.qs):
+            q, w = self.qs[self._cursor], self.weights[self._cursor]
+            if executor: executor(steps, q, w)
+            self._cursor += 1
+            steps += 1
+        # exec the file
+        with open(self.path, "rb") as f:
+            src = f.read()
+        ns = {"__name__": "__run__", "__file__": self.path}
+        code = compile(src, self.path, "exec")
+        try:
+            exec(code, ns)
+            status = "ok"
+        except Exception as e:
+            status = f"error: {e}"
+        finally:
+            self._burned = True
+        return dict(path=self.path, status=status,
+                    steps=steps, burned=self._burned)
+
+    def write(self, key: bytes, data: bytes) -> Dict:
+        if self.mode != AccessMode.WRITE:
+            raise PermissionError("WriteEnvelope required")
+        if not self._verify(key):
+            raise PermissionError("WriteEnvelope: invalid key")
+        with open(self.path, "wb") as f:
+            f.write(data)
+        self._writes += 1
+        return dict(path=self.path, bytes_written=len(data),
+                    writes=self._writes)
+
+
+class EnvelopeFactory:
+    """Builds file envelopes from a booted system."""
+    def __init__(self, K: int = 256):
+        self.K = K
+        self.mu = _mobius_sieve(K)
+
+    def _extract(self, path: str) -> Tuple[bytes, List[int], List[float]]:
+        with open(path, "rb") as f:
+            content = f.read()
+        sig = hashlib.shake_256(content).digest(32)
+        raw = hashlib.shake_256(sig).digest(self.K * 16)
+        qs, ws = [], []
+        for i in range(self.K):
+            xi = int.from_bytes(raw[16 * i:16 * i + 8], "big")
+            yi = int.from_bytes(raw[16 * i + 8:16 * i + 16], "big")
+            x = 0.5 + (xi / (2**64 - 1)) * 4.5
+            y = 0.5 + (yi / (2**64 - 1)) * 4.5
+            h = int.from_bytes(
+                hashlib.shake_256(struct.pack('>dd', x, y)).digest(8),
+                'big')
+            q = (h * h + h) % self.K
+            if self.mu[q] != 0:
+                qs.append(q)
+                ws.append(_elliptic_projection(x, y))
+        return sig, qs, ws
+
+    def read(self, path: str) -> Envelope:
+        sig, qs, ws = self._extract(path)
+        return Envelope(path, AccessMode.READ, sig, qs, ws)
+
+    def run(self, path: str) -> Envelope:
+        sig, qs, ws = self._extract(path)
+        return Envelope(path, AccessMode.RUN, sig, qs, ws)
+
+    def write(self, path: str, challenge: bytes) -> Envelope:
+        sig, qs, ws = self._extract(path)
+        return Envelope(path, AccessMode.WRITE, sig, qs, ws,
+                        challenge=challenge)
+
+
+class OSPermissionBroker:
+    def __init__(self, master_secret: bytes):
+        self._master = master_secret
+
+    def challenge(self) -> bytes:
+        return os.urandom(32)
+
+    def derive_write_key(self, env: Envelope,
+                         master_secret: Optional[bytes] = None) -> bytes:
+        secret = master_secret if master_secret is not None else self._master
+        return hashlib.shake_256(
+            secret + env.challenge + bytes.fromhex(env.fingerprint())
+        ).digest(32)
+
+
+# ============================================================
+#  Full boot pipeline
+# ============================================================
+@dataclass
+class BootReport:
+    chirp: BootChirp
+    n_chunks: int
+    buffer_bytes: int
+    symmetric: CPUBootResult
+    asymmetric: CPUBootResult
+    envelopes: Dict[str, Envelope]
+    files: Dict[str, int]
+    total_ms: float
+
+
+class MobiusBootPipeline:
     """
-    Run the chip pipeline, optionally reusing a ChipProcessor.
-    If processor is None, a temporary one is created.
+    Ties all four stages together.
+
+        chirp   →  server buffer  →  CPU (sym + asym)  →  file envelopes
     """
-    if processor is None:
-        processor = ChipProcessor(max_K=len(signal))
-    return processor.process(signal)
+    def __init__(self,
+                 K_chirp: int = 256,
+                 K_buffer: int = 512,
+                 K_cpu_sym: int = 256,
+                 K_cpu_asym: int = 256,
+                 K_env: int = 256):
+        self.K_chirp = K_chirp
+        self.K_buffer = K_buffer
+        self.K_cpu_sym = K_cpu_sym
+        self.K_cpu_asym = K_cpu_asym
+        self.K_env = K_env
 
-class ChipLogicGate:
-    """
-    A bounded Möbius logic gate that applies a function to a signal,
-    then runs the chip pipeline (convolution + supertrace + Möbius compression).
-    The output is a compressed representation of the transformed signal.
-    """
+        self.chirp: Optional[BootChirp] = None
+        self.buffer: Optional[ServerBuffer] = None
+        self.sym_boot: Optional[SymmetricBoot] = None
+        self.asym_boot: Optional[AsymmetricBoot] = None
+        self.env_factory: Optional[EnvelopeFactory] = None
+        self.broker: Optional[OSPermissionBroker] = None
 
-    def __init__(self, max_K=1000):
-        self.processor = ChipProcessor(max_K=max_K)
+    # --------------------------------------------------------
+    def stage1_chirp(self) -> BootChirp:
+        self.chirp = BootChirp.build(K=self.K_chirp)
+        return self.chirp
 
-    def apply_function(self, signal, func, *args, **kwargs):
-        """
-        Apply a function `func` to each element of `signal`.
-        `func` can be a callable (e.g., math.log, math.exp, np.sin)
-        or a string ('log', 'exp', 'sin', 'cos', 'trace').
-        """
-        if isinstance(func, str):
-            func_name = func.lower()
-            if func_name == 'log':
-                # avoid log(0)
-                safe_signal = np.maximum(signal, 1e-12)
-                transformed = np.log(safe_signal)
-            elif func_name == 'exp':
-                transformed = np.exp(signal)
-            elif func_name == 'sin':
-                transformed = np.sin(signal)
-            elif func_name == 'cos':
-                transformed = np.cos(signal)
-            elif func_name == 'trace':
-                # Matrix trace function: assumes signal is complex and represents matrix entries
-                transformed = self._matrix_trace(signal)
-            else:
-                raise ValueError(f"Unknown function name: {func_name}")
-        else:
-            # assume it's a callable
-            transformed = func(signal, *args, **kwargs)
+    # --------------------------------------------------------
+    def stage2_buffer(self, seed: int = 2024) -> ServerBuffer:
+        if self.chirp is None:
+            raise RuntimeError("stage1 must run first")
+        rng = np.random.default_rng(seed)
+        buf = ServerBuffer(K=self.K_buffer)
+        # use the chirp bytes as the seed payload
+        chirp_bytes = bytes(int(min(255, max(0, 128 + 127 * float(v))))
+                            for v in self.chirp.samples)
+        # append: chirp itself + random blocks
+        buf.append(chirp_bytes)
+        for _ in range(4):
+            block = rng.integers(0, 256, size=self.K_buffer,
+                                 dtype=np.uint8).tobytes()
+            buf.append(block)
+        # also append the concatenation as one big chunk
+        big = b"".join(rng.integers(0, 256, size=512,
+                                    dtype=np.uint8).tobytes()
+                       for _ in range(8))
+        buf.append(big)
+        self.buffer = buf
+        return buf
 
-        # Run the chip pipeline on the transformed signal
-        kept, S, H, m, conv = self.processor.process(transformed)
+    # --------------------------------------------------------
+    def stage3_cpu_boot(self) -> Tuple[CPUBootResult, CPUBootResult]:
+        if self.chirp is None or self.buffer is None:
+            raise RuntimeError("stage1 & stage2 must run first")
+        # read all chunks from the buffer
+        chunks: List[bytes] = []
+        for cid in range(self.buffer.n_chunks):
+            r = self.buffer.read(cid)
+            if r is not None:
+                chunks.append(r[0])
+        # symmetric path
+        self.sym_boot = SymmetricBoot(K=self.K_cpu_sym)
+        sym_res = self.sym_boot.boot(self.chirp, chunks)
+        # asymmetric path
+        self.asym_boot = AsymmetricBoot(K=self.K_cpu_asym)
+        asym_res = self.asym_boot.boot(self.chirp, chunks)
+        return sym_res, asym_res
 
-        # Return the compressed representation and invariants
-        return kept, S, H, m, conv
+    # --------------------------------------------------------
+    def stage4_envelopes(self, files: Dict[str, bytes]
+                         ) -> Dict[str, Envelope]:
+        self.env_factory = EnvelopeFactory(K=self.K_env)
+        self.broker = OSPermissionBroker(master_secret=b"os-boot-secret")
+        envs: Dict[str, Envelope] = {}
+        for name, content in files.items():
+            path = f"_boot_{name}"
+            with open(path, "wb") as f:
+                f.write(content)
+            envs[name] = self.env_factory.read(path)
+        return envs
 
-    def _matrix_trace(self, signal):
-        """
-        Compute the trace of a 2x2 matrix from a signal of length 4:
-        signal = [M00, M01, M10, M11]  (complex or real)
-        Returns the trace (scalar) repeated to match the original length?
-        For a logic gate, we treat the trace as a scalar that multiplies the signal.
-        """
-        if len(signal) != 4:
-            raise ValueError("Signal for matrix trace must have exactly 4 elements.")
-        M = np.array(signal).reshape(2, 2)
-        trace = np.trace(M)
-        # Return a constant signal of the same length as input (if we want element-wise)
-        # But here we treat it as a scalar result; we'll expand to an array of length 1.
-        return np.array([trace])
+    # --------------------------------------------------------
+    def boot(self, files: Dict[str, bytes],
+             seed: int = 2024) -> BootReport:
+        t0 = time.perf_counter()
+        print("=" * 78)
+        print("Möbius boot pipeline")
+        print("=" * 78)
+        print(f"  α = 1/(π − e)          = {ALPHA_SYM:.6f}")
+        print(f"  a_step = α/0.3628      = {A_STEP:.6f}")
+        print(f"  density 6/π²           = {DENSITY:.6f}")
+        print()
 
-    def bounded_log(self, signal):
-        """Apply log with a bound: replace log(x) with log(max(x, epsilon))."""
-        return self.apply_function(signal, 'log')
+        # ---- stage 1 ----
+        chirp = self.stage1_chirp()
+        print(f"[1] chirp")
+        print(f"      K            {chirp.K}")
+        print(f"      S, H, m      {chirp.S:+.4f}   "
+              f"{chirp.H:.4f}   {chirp.m:.4e}")
+        print(f"      t_ms         {chirp.t_ms:.2f}")
 
-    def bounded_exp(self, signal):
-        """Apply exp and then clip to prevent overflow."""
-        # The chip pipeline will compress, so no need to clip, but we can.
-        return self.apply_function(signal, 'exp')
+        # ---- stage 2 ----
+        buf = self.stage2_buffer(seed=seed)
+        print(f"[2] server buffer")
+        print(f"      K            {buf.K}")
+        print(f"      chunks       {buf.n_chunks}")
+        print(f"      bytes        {buf.size}")
+        # verify one chunk
+        r0 = buf.read(0)
+        if r0 is not None:
+            print(f"      chunk 0 S    {r0[1]:+.4f}  "
+                  f"H {r0[2]:.4f}  m {r0[3]:.4e}")
 
-    # Additional functions can be added similarly
+        # ---- stage 3 ----
+        sym_res, asym_res = self.stage3_cpu_boot()
+        print(f"[3] cpu boot")
+        print(f"      symmetric    O(K log log K)")
+        print(f"        cycles     {sym_res.cycles}")
+        print(f"        bits       {''.join(map(str, sym_res.bits[:16]))}…")
+        print(f"        S, m       {sym_res.S:+.4f}   {sym_res.m:.4e}")
+        print(f"        t_ms       {sym_res.t_ms:.2f}")
+        print(f"      asymmetric   O(K log K)")
+        print(f"        cycles     {asym_res.cycles}")
+        print(f"        bits       {''.join(map(str, asym_res.bits[:16]))}…")
+        print(f"        S, m       {asym_res.S:+.4f}   {asym_res.m:.4e}")
+        print(f"        t_ms       {asym_res.t_ms:.2f}")
 
+        # ---- stage 4 ----
+        envs = self.stage4_envelopes(files)
+        print(f"[4] file envelopes")
+        print(f"      files        {len(envs)}")
+        for name, env in envs.items():
+            print(f"        {name:12s}  qs={len(env.qs):>4d}  "
+                  f"fp={env.fingerprint()[:16]}")
+            # clean up temp file
+            try:
+                os.remove(env.path)
+            except OSError:
+                pass
 
-    """
-    A bounded Möbius logic gate that applies a function to a signal,
-    then runs the chip pipeline (convolution + supertrace + Möbius compression).
-    The output is a compressed representation of the transformed signal.
-    """
+        total_ms = (time.perf_counter() - t0) * 1e3
+        print()
+        print(f"  total boot time        {total_ms:.2f} ms")
+        print()
 
-    def __init__(self, max_K=1000):
-        self.processor = ChipProcessor(max_K=max_K)
-
-    def apply_function(self, signal, func, *args, **kwargs):
-        """
-        Apply a function `func` to each element of `signal`.
-        `func` can be a callable (e.g., math.log, math.exp, np.sin)
-        or a string ('log', 'exp', 'sin', 'cos', 'trace').
-        """
-        if isinstance(func, str):
-            func_name = func.lower()
-            if func_name == 'log':
-                # avoid log(0)
-                safe_signal = np.maximum(signal, 1e-12)
-                transformed = np.log(safe_signal)
-            elif func_name == 'exp':
-                transformed = np.exp(signal)
-            elif func_name == 'sin':
-                transformed = np.sin(signal)
-            elif func_name == 'cos':
-                transformed = np.cos(signal)
-            elif func_name == 'trace':
-                # Matrix trace function: assumes signal is complex and represents matrix entries
-                transformed = self._matrix_trace(signal)
-            else:
-                raise ValueError(f"Unknown function name: {func_name}")
-        else:
-            # assume it's a callable
-            transformed = func(signal, *args, **kwargs)
-
-        # Run the chip pipeline on the transformed signal
-        kept, S, H, m, conv = self.processor.process(transformed)
-
-        # Return the compressed representation and invariants
-        return kept, S, H, m, conv
-
-    def _matrix_trace(self, signal):
-        """
-        Compute the trace of a 2x2 matrix from a signal of length 4:
-        signal = [M00, M01, M10, M11]  (complex or real)
-        Returns the trace (scalar) repeated to match the original length?
-        For a logic gate, we treat the trace as a scalar that multiplies the signal.
-        """
-        if len(signal) != 4:
-            raise ValueError("Signal for matrix trace must have exactly 4 elements.")
-        M = np.array(signal).reshape(2, 2)
-        trace = np.trace(M)
-        # Return a constant signal of the same length as input (if we want element-wise)
-        # But here we treat it as a scalar result; we'll expand to an array of length 1.
-        return np.array([trace])
-
-    def bounded_log(self, signal):
-        """Apply log with a bound: replace log(x) with log(max(x, epsilon))."""
-        return self.apply_function(signal, 'log')
-
-    def bounded_exp(self, signal):
-        """Apply exp and then clip to prevent overflow."""
-        # The chip pipeline will compress, so no need to clip, but we can.
-        return self.apply_function(signal, 'exp')
+        return BootReport(
+            chirp=chirp,
+            n_chunks=buf.n_chunks,
+            buffer_bytes=buf.size,
+            symmetric=sym_res,
+            asymmetric=asym_res,
+            envelopes=envs,
+            files={name: len(c) for name, c in files.items()},
+            total_ms=total_ms,
+        )
 
 
-def boot_mobius_sequence(K_init=16, M_max=64, expansion_steps=3, seed=42):
-    """
-    Boot sequence:
-    1. Generate initial coefficients at odd square‑free indices (O(K_init) time).
-    2. For each expansion step:
-       - Apply a logic gate (e.g., log or exp) to transform the signal.
-       - Run the chip pipeline (convolution + supertrace + Möbius compression)
-         to produce a compressed representation of size M (≤ M_max).
-       - Store the compressed coefficients back into the memory.
-    3. The memory size is always bounded by M_max (O(M) memory).
-    Expansion cost per step is O(K log K) due to sorting in the chip pipeline.
-    """
-    # ---- Step 0: Initialisation ----
-    # Generate a set of elliptic addresses (just for bootstrapping)
-    K_initial = K_init
-    addresses = generate_addresses(K_initial, seed=seed)
-    # Compute matrix traces to get initial coefficients (O(K) time)
-    coeffs_initial = [matrix_trace(x, y, i=2) for x, y in addresses]
-    # Create a Möbius memory: only odd square‑free indices allowed.
-    # We'll map the first K_initial odd square‑free indices.
-    mem = MobiusCollatzMemory(max_index=1000, use_square_free=True)
-    # Get the first K_initial odd square‑free indices
-    idx = 1
-    count = 0
-    while count < K_initial:
-        if mem._valid_index(idx):
-            mem.write(idx, coeffs_initial[count])
-            count += 1
-        idx += 2  # only odd
-    print(f"Boot: initialised {len(mem)} coefficients.")
-    
-    # ---- Expansion loop ----
-    # Create a chip logic gate (uses the chip pipeline)
-    gate = ChipLogicGate(max_K=1000)
-    # We'll also use a chip processor for manual compression if needed
-    processor = ChipProcessor(max_K=1000)
-    
-    for step in range(expansion_steps):
-        # 1. Extract the current signal as a list of values (sorted by index)
-        items = sorted(mem.data.items())
-        signal = np.array([val for _, val in items], dtype=float)
-        print(f"  Step {step+1}: signal length = {len(signal)}")
-        
-        # 2. Apply a logic gate to transform the signal (e.g., bounded log)
-        # We can alternate gates for variety.
-        if step % 2 == 0:
-            kept, S, H, m, conv = gate.bounded_log(signal)
-            print(f"    Applied log transform: S={S:.4f}, H={H:.4f}, m={m:.4f}")
-        else:
-            kept, S, H, m, conv = gate.bounded_exp(signal)
-            print(f"    Applied exp transform: S={S:.4f}, H={H:.4f}, m={m:.4f}")
-        
-        # 3. The chip pipeline returns `kept` as a list of (index, value) pairs.
-        # These indices are in the sorted order (after TSP routing).
-        # We need to map them back to the original Möbius memory indices.
-        # The `kept` indices are 0-based positions in the sorted signal.
-        # We have the original indices from `items`.
-        # Create a new memory with the compressed coefficients.
-        new_mem = MobiusCollatzMemory(max_index=1000, use_square_free=True)
-        for pos, val in kept:
-            if pos < len(items):
-                orig_idx = items[pos][0]  # the actual odd square‑free index
-                if new_mem._valid_index(orig_idx):
-                    new_mem.write(orig_idx, val)
-        # Replace the old memory with the compressed one
-        mem = new_mem
-        print(f"    Compressed to {len(mem)} coefficients (≤ M_max={M_max})")
-        # If we have reached the desired max, we can break
-        if len(mem) >= M_max:
-            print(f"    Reached memory limit {M_max}.")
-            break
-    
-    return mem
+# ============================================================
+#  Demo
+# ============================================================
+def demo():
+    files = {
+        "readme.txt":
+            b"hello world from the mobius boot pipeline\n",
+        "runme.py":
+            b"x = 6\ny = 7\nprint('boot says 6*7 =', x * y)\n",
+        "config.ini":
+            b"[mobius]\nK=256\nalpha=2.362338\ndensity=0.607927\n",
+    }
 
-# ---------- Main demonstration ----------
-def main():
-    print("=== Möbius Memory Boot Sequence ===\n")
-    # Boot with small K_init, expand to M_max=64, in 3 steps
-    mem = boot_mobius_sequence(K_init=16, M_max=64, expansion_steps=5, seed=42)
-    
-    print(f"\nFinal memory contains {len(mem)} coefficients.")
-    # Show the first few indices and values
-    print("First 10 stored entries (idx, value):")
-    for i, (idx, val) in enumerate(sorted(mem.data.items())):
-        if i >= 10:
-            break
-        print(f"  {idx}: {val:.6f}")
-    
-    # Also compute the supertrace of the final memory
-    from random_access_colla_mobius import supertrace_from_coeffs
-    S_final = supertrace_from_coeffs(mem.data)
-    print(f"Final supertrace S = {S_final:.6f}")
+    pipeline = MobiusBootPipeline(
+        K_chirp=256, K_buffer=512,
+        K_cpu_sym=256, K_cpu_asym=256, K_env=256,
+    )
+    report = pipeline.boot(files, seed=2024)
+
+    # ---- usage: read / run / write envelopes ----
+    print("=" * 78)
+    print("Envelope usage")
+    print("=" * 78)
+
+    # recreate the files and envelopes for the demo
+    envs = {}
+    for name, content in files.items():
+        path = f"_boot_{name}"
+        with open(path, "wb") as f:
+            f.write(content)
+        envs[name] = pipeline.env_factory.read(path)
+
+    # READ
+    e = envs["readme.txt"]
+    body = e.read()
+    print(f"[read] {e.path}")
+    print(f"       bytes  {len(body)}")
+    print(f"       first  {body[:40]!r}")
+
+    # RUN
+    path = "_boot_runme.py"
+    with open(path, "w") as f:
+        f.write(files["runme.py"].decode())
+    rn = pipeline.env_factory.run(path)
+    print(f"[run]  {rn.path}")
+    print(f"       1D path length  {len(rn.qs)}")
+    print(f"       burned before   {rn._burned}")
+    out = rn.run()
+    print(f"       first run       {out}")
+    try:
+        rn.run()
+    except PermissionError as exc:
+        print(f"       second run      DENIED  ({exc})")
+
+    # WRITE
+    path = "_boot_config.ini"
+    with open(path, "wb") as f:
+        f.write(files["config.ini"])
+    challenge = pipeline.broker.challenge()
+    we = pipeline.env_factory.write(path, challenge)
+    key = pipeline.broker.derive_write_key(we)
+    we.authorize(key)
+    res = we.write(key, b"[mobius]\nK=512\n")
+    print(f"[write] {we.path}")
+    print(f"        writes  {res['writes']}")
+    print(f"        bytes   {res['bytes_written']}")
+
+    # cleanup
+    for path in ("_boot_readme.txt", "_boot_runme.py",
+                 "_boot_config.ini"):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
 
 if __name__ == "__main__":
-    main()
+    demo()
