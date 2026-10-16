@@ -60,6 +60,8 @@ c/c++ and rust **
 
 For compressed representations of typically large Polynomial operators like derivatives, ASCII, integrals, log, sin etc., Use Mobius logic gates.
 
+For Fast, secure, private local LLM inference use Machinelearning/Full_pipeline_neural_net_compression_local_pc.py for neural nets. 
+
 For server inference use "# mobius_server.py" and "signal-pi-e-losseless.py" and
 
 "signal-3d-6d.py" and "test-signal-throughput.py" for 6 vertex is 3d wave packet, as well as "hex-dns-mobius.py" for word compression . 
