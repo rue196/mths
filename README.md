@@ -70,6 +70,8 @@ accuracy in reconstruction as well ? **
 
 Use Q-mechanics/coupling_Q_entanglement.py, for offline geo-location without GPS[accurate to a several centimeters to several feet 3ft radius] no spoofing either.  
 
+**For more information on non-ionizing medical Imaging and what you can & can't do with electron coupling read Q-mechanics/neutral, not; electromagnetism**
+
 While for heat management on chips use ""**mobius-sat-maxwell-handler.py**"" 
 
 For computing screen steps on electronic devices use "screen-test-fft-finite-step.py" and "color.py"
