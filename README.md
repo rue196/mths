@@ -34,6 +34,10 @@ in the transcendental entry length, to which |Ci| are the indices only keeping t
 
 For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {updated as of 17-09-2026}** to AVOID OVERFLOW on normal O(n) hardware.
 
+//**Now as of today{19-10-2026} use for O(K) use the versions with convolution method instead of Complex numbers library like computer_systems/O(K)_conv_tau_muon.py 
+
+computer_systems/O(K)_cuda_support_1.1.py **
+
 Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
 
 //Encryption (?) that is lead up to the reader to decide....(Advised to use projection-suisse-encrypt.py or derivations)
