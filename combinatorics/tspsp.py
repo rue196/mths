@@ -34,5 +34,5 @@ print(f"Optimal tour length (cycle): {dist:.2f}")
 print(f"Time taken: {elapsed:.3f} seconds (O(K log K) sorting)")
 print(f"First 10 cities in order: {tour[:10000]}")
 
-input('Press ENTER to exit')
+
    
