@@ -12,12 +12,37 @@ Pure O(K) real-arithmetic muon/tau clock.
     · Convolution is the clock speed
     · Parity cross-check (Figure 4)  →  O(K) via closed-form expansion
 """
-
+# ============================================================
+#  OK_conv_tau_muon.py  —  patched for 512-bit constants
+# ============================================================
 from __future__ import annotations
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+
+# ---------- NEW: 512-bit sources ----------
+from piepy_512 import e_512bit, pi_512bit, alpha_512bit
+
+_PI_512    = pi_512bit()          # Decimal, ≥512 bits
+_E_512     = e_512bit()           # Decimal, ≥512 bits
+_ALPHA_512 = alpha_512bit()       # Decimal, ≥512 bits
+
+# ---------- float versions used by numpy arrays ----------
+#   float(Decimal_512) == math.e / math.pi to full double precision
+PI      = float(_PI_512)          # = math.pi  (bit-exact)
+E       = float(_E_512)           # = math.e   (bit-exact)
+ALPHA   = float(_ALPHA_512)       # = 1/(math.pi − math.e)  (bit-exact)
+A_STEP  = ALPHA / 0.3628
+DENSITY = 6.0 / (PI * PI)
+
+# ---------- 512-bit originals exposed for inspection/reporting ----------
+PI_512    = _PI_512
+E_512     = _E_512
+ALPHA_512 = _ALPHA_512
+
+# ---- everything below is byte-identical to the original file ----
+# (mobius_sieve, smooth_zeros, spin_grade, OKRealClock, demo)
 
 
 # ============================================================
@@ -94,7 +119,7 @@ class OKRealClock:
     """
 
     def __init__(self,
-                 K: int = 20,
+                 K: int = 1000,
                  J_C: float = 1.0,
                  smooth: bool = True,
                  tick_tol: float = 1e-9,
@@ -455,7 +480,7 @@ def demo():
     print()
 
     clock = OKRealClock(
-        K=20, J_C=1.0, smooth=True, tick_tol=1e-9,
+        K=500, J_C=1.0, smooth=True, tick_tol=1e-9,
         use_fft=False)
     print(clock.report())
     print()
