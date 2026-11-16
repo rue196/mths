@@ -43,6 +43,14 @@ ALPHA_512 = _ALPHA_512
 
 # ---- everything below is byte-identical to the original file ----
 # (mobius_sieve, smooth_zeros, spin_grade, OKRealClock, demo)
+# ============================================================
+#  Constants 
+# ============================================================
+PI      = math.pi
+E       = math.e
+ALPHA   = 1.0 / (PI - E)
+A_STEP  = ALPHA / 0.3628
+DENSITY = 6.0 / (PI * PI)
 
 # ============================================================
 #  Möbius sieve  ·  O(K)
