@@ -36,7 +36,9 @@ For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {
 
 //**Now as of today{19-10-2026} use for O(K) use the versions with convolution method instead of Complex numbers library like computer_systems/O(K)_conv_tau_muon.py 
 
-computer_systems/O(K)_cuda_support_1.1.py **
+computer_systems/O(K)_cuda_support_1.1.py ** 
+
+**DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE** 
 
 Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
 
