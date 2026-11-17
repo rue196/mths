@@ -376,23 +376,28 @@ def verify_utf8_envelope(env: UTF8Envelope) -> Tuple[bool, Dict]:
     return all(checks.values()), checks
 
 
-ENV_FMT = ">BHHddd32sI"
+# ---- FIXED: ENV_FMT now carries alu_scalar (one extra 'd') ----
+#     >B H H d d d d 32s I    =  1 + 2 + 2 + 8*4 + 32 + 4  =  73 B
+ENV_FMT = ">BHHdddd32sI"
 ENV_HDR = struct.calcsize(ENV_FMT)
 
 
 def pack_env(env: UTF8Envelope) -> bytes:
-    return struct.pack(ENV_FMT, env.K, env.n_particles, env.n_survivors,
+    return struct.pack(ENV_FMT,
+                       env.K, env.n_particles, env.n_survivors,
                        env.survival_rate, env.supertrace, env.mass,
+                       env.alu_scalar,
                        bytes.fromhex(env.fingerprint),
                        len(env.raw)) + env.raw
 
 
 def unpack_env(blob: bytes) -> Tuple[UTF8Envelope, int]:
-    K, n_p, n_s, rate, S, m, fp, rl = struct.unpack(ENV_FMT, blob[:ENV_HDR])
+    (K, n_p, n_s, rate, S, m, alu, fp, rl
+     ) = struct.unpack(ENV_FMT, blob[:ENV_HDR])
     raw = blob[ENV_HDR:ENV_HDR + rl]
     env = UTF8Envelope(raw=raw, K=K, n_particles=n_p, n_survivors=n_s,
                        survival_rate=rate, supertrace=S, mass=m,
-                       alu_scalar=0.0, fingerprint=fp.hex())
+                       alu_scalar=alu, fingerprint=fp.hex())
     return env, ENV_HDR + rl
 
 
