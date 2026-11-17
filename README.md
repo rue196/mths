@@ -8,7 +8,7 @@ M swiss knife matrix  which is a 2d graph, 3d projection
 
 where real parts are [x^-1, y^-1] are discrete while travelling 
 
-or accounting for travelling in time [x^i,y^i] where i accounts for time, flow etc.
+or accounting for travelling in time [x^i,y^i] where i accounts for time, flow etc. 
 
 can be modified for any given situation, up to the given task at hand. 
 
@@ -39,6 +39,8 @@ For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {
 computer_systems/O(K)_cuda_support_1.1.py ** 
 
 **DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE** 
+
+Also use computer_systems/cli_512.py as a virtual machine, supports 64-bit encoding with codec using 512-bit. 
 
 Else use small K like K=1. But chip compression should always be in use to avoid buffer overflow attacks.
 
