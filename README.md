@@ -4,35 +4,39 @@ Archive, made mostly with coding assistance from deepseek.
 
 Mathematical objects used can differentiated by ;
 
-M swiss knife matrix  which is a 2d graph, 3d projection
+-M swiss knife matrix  which is a 2d graph, 3d projection
 
-where real parts are [x^-1, y^-1] are discrete while travelling 
+ where real parts are [x^-1, y^-1] are discrete while travelling 
 
-or accounting for travelling in time [x^i,y^i] where i accounts for time, flow etc. 
+ or accounting for travelling in time [x^i,y^i] where i accounts for time, flow etc. 
 
-can be modified for any given situation, up to the given task at hand. 
+ can be modified for any given situation, up to the given task at hand. 
 
-Converges quickly, and can be a replacement for Laplacian for Partial differential equations. 
+ Converges quickly, and can be a replacement for Laplacian for Partial differential equations. 
 
-Full representation is M = [x^-1, y^-1][x^i,y^i] 
+ Full representation is M = [x^-1, y^-1][x^i,y^i] 
 
 Many different use cases, Everywhere including many examples in the repository. 
 
 They're are slightly tweaked for a given task but the integrity stays.
 
-For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
+-For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
 
-which is for a normalized finite derivative which matches Dζ/dx.
+ which is for a normalized finite derivative which matches Dζ/dx.
 
-O(K) or constant time is the primitive root of Alpha or (a) which can be bounded between the two, either are viable 
+ O(K) or constant time is the primitive root of Alpha or (a) which can be bounded between the two, either are viable 
 
-for constant time K. Which negative indices correspond to the amount of floating points(which can be adjusted) 
+ for constant time K. Which negative indices correspond to the amount of floating points(which can be adjusted) 
 
-to a indices with a transcendental entry length (2k + 1) which correspond to indices -K to K which have a 0 
+ to a indices with a transcendental entry length (2k + 1) which correspond to indices -K to K which have a 0 
 
-in the transcendental entry length, to which |Ci| are the indices only keeping the real part length which are 10^6. 
+ in the transcendental entry length, to which |Ci| are the indices only keeping the real part length which are 10^6. 
 
-For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {updated as of 17-09-2026}** to AVOID OVERFLOW on normal O(n) hardware.
+ For larger K Use Chip.py and the chip compression pipeline ** or use 64-BIT.py {updated as of 17-09-2026}** to AVOID OVERFLOW on normal O(n) hardware.
+
+//For Model mis-alignment and signal to noise improvement please refer to **Machinelearning/mis_aligment_statistical_drift.pdf** 
+
+ - Advised not to use lower bit budget for neural networks like 8-bit, High statistical drift.
 
 //**Now as of today{19-10-2026} use for O(K) use the versions with convolution method instead of Complex numbers library like computer_systems/O(K)_conv_tau_muon.py 
 
