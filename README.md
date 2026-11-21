@@ -38,11 +38,12 @@ They're are slightly tweaked for a given task but the integrity stays.
 
  - Advised not to use lower bit budget for neural networks like 8-bit, High statistical drift.
 
-//**Now as of today{19-10-2026} use for O(K) use the versions with convolution method instead of Complex numbers library like computer_systems/O(K)_conv_tau_muon.py 
+//**Now as of today{19-10-2026} use for O(K) use the versions with convolution method instead of Complex numbers library like computer_systems/OK_conv_tau_muon.py 
 
 computer_systems/O(K)_cuda_support_1.1.py ** 
 
-- **DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE** 
+- **DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE**
+- More on the math behind OK_conv_tau_muon.py ; encrypt/elliptic_curve_crypt_mobius_basel.pdf .
 
 Also use computer_systems/cli_512.py as a virtual machine, supports 64-bit encoding with codec using 512-bit. 
 
