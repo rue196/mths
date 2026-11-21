@@ -2,9 +2,9 @@ Archive, made mostly with coding assistance from deepseek.
 
 **Mostly translations of already existing frameworks**
 
-//Mathematical objects used can differentiated by ;
+ Mathematical objects used can differentiated by ;
  
- -M swiss knife matrix  which is a 2d graph, 3d projection
+ - M swiss knife matrix  which is a 2d graph, 3d projection
 
  where real parts are [x^-1, y^-1] are discrete while travelling 
 
@@ -20,7 +20,7 @@ Many different use cases, Everywhere including many examples in the repository.
 
 They're are slightly tweaked for a given task but the integrity stays.
 
--For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
+- For integrals use Alpha or a = 1/(pi-e), and for derivatives Use Dζ/dx or the finite step derivative
 
  which is for a normalized finite derivative which matches Dζ/dx.
 
@@ -42,7 +42,7 @@ They're are slightly tweaked for a given task but the integrity stays.
 
 computer_systems/O(K)_cuda_support_1.1.py ** 
 
-**DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE** 
+- **DO NOT USE HIGHER BITWISE PRECISION FOR ANYTHING OTHER THAN PERSONAL USE** 
 
 Also use computer_systems/cli_512.py as a virtual machine, supports 64-bit encoding with codec using 512-bit. 
 
@@ -50,7 +50,7 @@ Else use small K like K=1. But chip compression should always be in use to avoid
 
 //Encryption (?) that is lead up to the reader to decide....(Advised to use projection-suisse-encrypt.py or derivations) 
 
-Or SAT envelope standard for pure noise. 
+- Or SAT envelope standard for pure noise. 
 
 also deterministic 'super-polynomials' aren't helpful techniques and aren't advised, Please scramble as much as possible with the least recoupable 
 
