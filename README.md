@@ -2,9 +2,9 @@ Archive, made mostly with coding assistance from deepseek.
 
 **Mostly translations of already existing frameworks**
 
-Mathematical objects used can differentiated by ;
-
--M swiss knife matrix  which is a 2d graph, 3d projection
+//Mathematical objects used can differentiated by ;
+ 
+ -M swiss knife matrix  which is a 2d graph, 3d projection
 
  where real parts are [x^-1, y^-1] are discrete while travelling 
 
