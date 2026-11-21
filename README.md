@@ -52,7 +52,8 @@ Else use small K like K=1. But chip compression should always be in use to avoid
 //Encryption (?) that is lead up to the reader to decide....(Advised to use projection-suisse-encrypt.py or derivations) 
 
 - Or SAT envelope standard for pure noise.
-- **ALL LEGACY ALGORITHMS ARE PRONE TO CLASSICAL ATTACKS** 
+- **ALL LEGACY ALGORITHMS ARE PRONE TO CLASSICAL ATTACKS**
+- Advised to use large length (2K + 1) SAT envelope like in computer_systems/email_server_mobius.py with a mask or svp/cvp like system.  
 
 also deterministic 'super-polynomials' aren't helpful techniques and aren't advised, Please scramble as much as possible with the least recoupable 
 
